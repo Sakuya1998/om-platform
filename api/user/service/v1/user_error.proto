@@ -30,12 +30,14 @@ enum UserErrorReason {
   ORGANIZATION_NOT_FOUND = 204 [(errors.code) = 404]; // 组织不存在
   POSITION_NOT_FOUND = 205 [(errors.code) = 404]; // 职位不存在
   TENANT_NOT_FOUND = 206 [(errors.code) = 404]; // 租户不存在
+  PERMISSION_NOT_FOUND = 207 [(errors.code) = 404];   // 权限不存在
 
   // 401
-  NOT_LOGGED_IN = 300 [(errors.code) = 401];
+  NOT_LOGGED_IN = 300 [(errors.code) = 401]; // 未登录
   USER_FREEZE = 301 [(errors.code) = 401]; // 用户被冻结
   INCORRECT_PASSWORD = 302 [(errors.code) = 401]; // 密码错误
 
   // 403
-  ACCESS_FORBIDDEN = 400 [(errors.code) = 403];
+  ACCESS_FORBIDDEN = 400 [(errors.code) = 403];  // 禁止访问
+  PERMISSION_DENIED = 401 [(errors.code) = 403]; // 权限不足
 }
