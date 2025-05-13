@@ -1,0 +1,42 @@
+syntax = "proto3";
+
+package api.user.service.v1;
+
+import "gnostic/openapi/v3/annotations.proto";
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/field_mask.proto";
+
+import "pagination/v1/pagination.proto";
+
+option go_package = "om-platform/api/user/service/v1;v1";
+option java_multiple_files = true;
+option java_package = "api.user.service.v1";
+
+// 权限服务
+service PermissionService {
+  // 查询权限列表
+  rpc ListPermission (pagination.PagingRequest) returns (ListPermissionResponse) {}
+
+  // 获取权限详情
+  rpc GetPermission (GetPermissionRequest) returns (Permission) {}
+
+  // 创建权限
+  rpc CreatePermission (CreatePermissionRequest) returns (google.protobuf.Empty) {}
+
+  // 更新权限
+  rpc UpdatePermission (UpdatePermissionRequest) returns (google.protobuf.Empty) {}
+
+  // 删除权限
+  rpc DeletePermission (DeletePermissionRequest) returns (google.protobuf.Empty) {}
+
+  // 获取权限树
+  rpc GetPermissionTree (google.protobuf.Empty) returns (PermissionTree) {}
+
+  // 获取权限树节点
+  rpc GetPermissionTreeNode (GetPermissionTreeNodeRequest) returns (PermissionTreeNode) {}
+
+  // 获取权限树节点列表
+  rpc ListPermissionTreeNode (ListPermissionTreeNodeRequest) returns (ListPermissionTreeNodeResponse) {}
+
+}

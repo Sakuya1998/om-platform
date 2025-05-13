@@ -1,10 +1,10 @@
 package server
 
 import (
-	helloworldv1 "om-platform/api/helloworld/v1"
 	userv1 "om-platform/api/user/service/v1"
-	"om-platform/internal/conf"
-	"om-platform/internal/service"
+	helloworldv1 "om-platform/app/user/service/api/helloworld/v1"
+	"om-platform/app/user/service/internal/conf"
+	"om-platform/app/user/service/internal/service"
 
 	"github.com/go-kratos/kratos/v2/log"
 	"github.com/go-kratos/kratos/v2/middleware/recovery"
@@ -12,7 +12,7 @@ import (
 )
 
 // NewHTTPServer new an HTTP server.
-func NewHTTPServer(c *conf.Server, greeter *service.GreeterService, userMgmt *service.UserManagementService, logger log.Logger) *http.Server {
+func NewHTTPServer(c *conf.Server, greeter *service.GreeterService, userSvc *service.UserManagementService, logger log.Logger) *http.Server {
 	var opts = []http.ServerOption{
 		http.Middleware(
 			recovery.Recovery(),
@@ -28,7 +28,9 @@ func NewHTTPServer(c *conf.Server, greeter *service.GreeterService, userMgmt *se
 		opts = append(opts, http.Timeout(c.Http.Timeout.AsDuration()))
 	}
 	srv := http.NewServer(opts...)
+	// 注册Greeter服务
 	helloworldv1.RegisterGreeterHTTPServer(srv, greeter)
-	userv1.RegisterUserManagementServiceHTTPServer(srv, userMgmt)
+	// 注册用户管理服务
+	userv1.RegisterUserManagementServiceHTTPServer(srv, userSvc)
 	return srv
 }

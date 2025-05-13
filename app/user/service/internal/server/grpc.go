@@ -1,10 +1,10 @@
 package server
 
 import (
-	helloworldv1 "om-platform/api/helloworld/v1"
 	userv1 "om-platform/api/user/service/v1"
-	"om-platform/internal/conf"
-	"om-platform/internal/service"
+	helloworldv1 "om-platform/app/user/service/api/helloworld/v1"
+	"om-platform/app/user/service/internal/conf"
+	"om-platform/app/user/service/internal/service"
 
 	"github.com/go-kratos/kratos/v2/log"
 	"github.com/go-kratos/kratos/v2/middleware/recovery"
@@ -12,7 +12,7 @@ import (
 )
 
 // NewGRPCServer new a gRPC server.
-func NewGRPCServer(c *conf.Server, greeter *service.GreeterService, userMgmt *service.UserManagementService, logger log.Logger) *grpc.Server {
+func NewGRPCServer(c *conf.Server, greeter *service.GreeterService, userSvc *service.UserManagementService, logger log.Logger) *grpc.Server {
 	var opts = []grpc.ServerOption{
 		grpc.Middleware(
 			recovery.Recovery(),
@@ -28,7 +28,9 @@ func NewGRPCServer(c *conf.Server, greeter *service.GreeterService, userMgmt *se
 		opts = append(opts, grpc.Timeout(c.Grpc.Timeout.AsDuration()))
 	}
 	srv := grpc.NewServer(opts...)
+	// 注册Greeter服务
 	helloworldv1.RegisterGreeterServer(srv, greeter)
-	userv1.RegisterUserManagementServiceServer(srv, userMgmt)
+	// 注册用户管理服务
+	userv1.RegisterUserManagementServiceServer(srv, userSvc)
 	return srv
 }
