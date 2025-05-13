@@ -18,7 +18,7 @@
   - gRPC方法名: `PascalCase` (例如: `CreateAlarm`)
   - Protobuf消息名: `PascalCase` (例如: `AlarmRule`)
   - Protobuf字段名: `snake_case` (例如: `rule_id`, `display_name`)
-- **错误处理**: API应返回明确的错误码和错误信息。HTTP API使用标准HTTP状态码，gRPC使用标准gRPC状态码。
+- **错误处理**: API应返回明确的错误码和错误信息。HTTP API使用标准HTTP状态码，gRPC使用标准gRPC状态码。服务实现应记录详细的错误日志，便于问题排查和审计。
 - **资源释放**: 服务实现中必须确保数据库连接、文件句柄等资源得到及时、正确的释放。
 
 ## 3. API 版本控制
@@ -72,7 +72,7 @@
 
 ### 7.1. 监控中枢 (Monitoring Service)
 
-- **职责**: 负责告警管理、指标数据处理、日志接入等。
+- **职责**: 负责告警管理、指标数据处理、日志接入等。服务实现时，应特别注意错误处理机制的完备性和各类资源的及时释放。
 - **示例 Proto (`api/monitoring/v1/alarm.proto`)**: (参考开发计划文档中的示例)
   ```protobuf
   syntax = "proto3";

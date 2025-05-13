@@ -49,3 +49,10 @@ docker build -t <your-docker-image-name> .
 docker run --rm -p 8000:8000 -p 9000:9000 -v </path/to/your/configs>:/data/conf <your-docker-image-name>
 ```
 
+## Documentation
+
+For detailed project planning and API specifications, please refer to the documents in the `doc` directory:
+
+- [Intelligent OM Platform Development Plan](./doc/intelligent_om_platform_development_plan.md)
+- [API Specification Document](./doc/api_specification_document.md)
+

@@ -1,0 +1,30 @@
+syntax = "proto3";
+
+package api.user.service.v1;
+
+option go_package = "om-platform/api/user/service/v1;v1";
+option java_multiple_files = true;
+option java_package = "api.user.service.v1";
+
+service Role {
+	rpc CreateRole (CreateRoleRequest) returns (CreateRoleReply);
+	rpc UpdateRole (UpdateRoleRequest) returns (UpdateRoleReply);
+	rpc DeleteRole (DeleteRoleRequest) returns (DeleteRoleReply);
+	rpc GetRole (GetRoleRequest) returns (GetRoleReply);
+	rpc ListRole (ListRoleRequest) returns (ListRoleReply);
+}
+
+message CreateRoleRequest {}
+message CreateRoleReply {}
+
+message UpdateRoleRequest {}
+message UpdateRoleReply {}
+
+message DeleteRoleRequest {}
+message DeleteRoleReply {}
+
+message GetRoleRequest {}
+message GetRoleReply {}
+
+message ListRoleRequest {}
+message ListRoleReply {}

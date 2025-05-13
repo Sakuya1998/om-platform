@@ -1,0 +1,30 @@
+syntax = "proto3";
+
+package api.user.service.v1;
+
+option go_package = "om-platform/api/user/service/v1;v1";
+option java_multiple_files = true;
+option java_package = "api.user.service.v1";
+
+service Department {
+	rpc CreateDepartment (CreateDepartmentRequest) returns (CreateDepartmentReply);
+	rpc UpdateDepartment (UpdateDepartmentRequest) returns (UpdateDepartmentReply);
+	rpc DeleteDepartment (DeleteDepartmentRequest) returns (DeleteDepartmentReply);
+	rpc GetDepartment (GetDepartmentRequest) returns (GetDepartmentReply);
+	rpc ListDepartment (ListDepartmentRequest) returns (ListDepartmentReply);
+}
+
+message CreateDepartmentRequest {}
+message CreateDepartmentReply {}
+
+message UpdateDepartmentRequest {}
+message UpdateDepartmentReply {}
+
+message DeleteDepartmentRequest {}
+message DeleteDepartmentReply {}
+
+message GetDepartmentRequest {}
+message GetDepartmentReply {}
+
+message ListDepartmentRequest {}
+message ListDepartmentReply {}
