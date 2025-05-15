@@ -1,0 +1,444 @@
+syntax = "proto3";
+
+package api.user.service.v1;
+
+import "gnostic/openapi/v3/annotations.proto";
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/struct.proto";
+
+import "om-platform/pkg/utils/pagination/v1";
+
+option go_package = "om-platform/api/user/service/v1;v1";
+option java_multiple_files = true;
+option java_package = "api.user.service.v1";
+
+// 用户身份联合管理服务
+// 提供与外部身份提供商集成的功能，支持SSO、OAuth2、LDAP等认证方式
+service IdentityService {
+  // 配置身份提供商
+  rpc ConfigureIdentityProvider (ConfigureIdentityProviderRequest) returns (ConfigureIdentityProviderResponse) {}
+  
+  // 获取身份提供商配置
+  rpc GetIdentityProviderConfig (GetIdentityProviderConfigRequest) returns (IdentityProviderConfig) {}
+  
+  // 更新身份提供商配置
+  rpc UpdateIdentityProviderConfig (UpdateIdentityProviderConfigRequest) returns (google.protobuf.Empty) {}
+  
+  // 删除身份提供商配置
+  rpc DeleteIdentityProviderConfig (DeleteIdentityProviderConfigRequest) returns (google.protobuf.Empty) {}
+  
+  // 列出身份提供商配置
+  rpc ListIdentityProviderConfigs (ListIdentityProviderConfigsRequest) returns (ListIdentityProviderConfigsResponse) {}
+  
+  // 测试身份提供商连接
+  rpc TestIdentityProviderConnection (TestIdentityProviderConnectionRequest) returns (TestIdentityProviderConnectionResponse) {}
+  
+  // 获取身份提供商登录URL
+  rpc GetIdentityProviderLoginURL (GetIdentityProviderLoginURLRequest) returns (GetIdentityProviderLoginURLResponse) {}
+  
+  // 处理身份提供商回调
+  rpc HandleIdentityProviderCallback (HandleIdentityProviderCallbackRequest) returns (HandleIdentityProviderCallbackResponse) {}
+  
+  // 关联外部身份
+  rpc LinkExternalIdentity (LinkExternalIdentityRequest) returns (LinkExternalIdentityResponse) {}
+  
+  // 解除外部身份关联
+  rpc UnlinkExternalIdentity (UnlinkExternalIdentityRequest) returns (google.protobuf.Empty) {}
+  
+  // 获取用户关联的外部身份
+  rpc GetUserExternalIdentities (GetUserExternalIdentitiesRequest) returns (GetUserExternalIdentitiesResponse) {}
+  
+  // 同步用户信息
+  rpc SyncUserFromExternalIdentity (SyncUserFromExternalIdentityRequest) returns (SyncUserFromExternalIdentityResponse) {}
+  
+  // 批量同步用户
+  rpc BatchSyncUsersFromExternalIdentity (BatchSyncUsersFromExternalIdentityRequest) returns (BatchSyncUsersFromExternalIdentityResponse) {}
+  
+  // 获取身份提供商元数据
+  rpc GetIdentityProviderMetadata (GetIdentityProviderMetadataRequest) returns (GetIdentityProviderMetadataResponse) {}
+  
+  // 导入SAML元数据
+  rpc ImportSAMLMetadata (ImportSAMLMetadataRequest) returns (ImportSAMLMetadataResponse) {}
+}
+
+// 身份提供商类型
+enum IdentityProviderType {
+  IDENTITY_PROVIDER_TYPE_UNSPECIFIED = 0; // 未指定
+  IDENTITY_PROVIDER_TYPE_OAUTH2 = 1; // OAuth2
+  IDENTITY_PROVIDER_TYPE_OIDC = 2; // OpenID Connect
+  IDENTITY_PROVIDER_TYPE_SAML = 3; // SAML
+  IDENTITY_PROVIDER_TYPE_LDAP = 4; // LDAP
+  IDENTITY_PROVIDER_TYPE_ACTIVE_DIRECTORY = 5; // Active Directory
+  IDENTITY_PROVIDER_TYPE_CUSTOM = 6; // 自定义
+}
+
+// 配置身份提供商请求
+message ConfigureIdentityProviderRequest {
+  string provider_name = 1; // 提供商名称
+  IdentityProviderType provider_type = 2; // 提供商类型
+  string display_name = 3; // 显示名称
+  string description = 4; // 描述
+  bool enabled = 5; // 是否启用
+  uint32 tenant_id = 6; // 租户ID(可选，为空表示全局)
+  
+  // 根据提供商类型，以下字段至少需要填写一组
+  OAuth2Config oauth2_config = 7; // OAuth2配置
+  OIDCConfig oidc_config = 8; // OIDC配置
+  SAMLConfig saml_config = 9; // SAML配置
+  LDAPConfig ldap_config = 10; // LDAP配置
+  ActiveDirectoryConfig active_directory_config = 11; // AD配置
+  google.protobuf.Struct custom_config = 12; // 自定义配置
+  
+  AttributeMappingConfig attribute_mapping = 13; // 属性映射配置
+  ProvisioningConfig provisioning_config = 14; // 配置同步配置
+}
+
+// 配置身份提供商响应
+message ConfigureIdentityProviderResponse {
+  string provider_id = 1; // 提供商ID
+  google.protobuf.Timestamp created_at = 2; // 创建时间
+}
+
+// OAuth2配置
+message OAuth2Config {
+  string client_id = 1; // 客户端ID
+  string client_secret = 2; // 客户端密钥
+  string authorization_endpoint = 3; // 授权端点
+  string token_endpoint = 4; // 令牌端点
+  string userinfo_endpoint = 5; // 用户信息端点
+  string redirect_uri = 6; // 重定向URI
+  repeated string scopes = 7; // 作用域
+  string response_type = 8; // 响应类型
+  map<string, string> additional_params = 9; // 附加参数
+}
+
+// OIDC配置
+message OIDCConfig {
+  string client_id = 1; // 客户端ID
+  string client_secret = 2; // 客户端密钥
+  string issuer = 3; // 颁发者
+  string authorization_endpoint = 4; // 授权端点
+  string token_endpoint = 5; // 令牌端点
+  string userinfo_endpoint = 6; // 用户信息端点
+  string jwks_uri = 7; // JWKS URI
+  string redirect_uri = 8; // 重定向URI
+  repeated string scopes = 9; // 作用域
+  string response_type = 10; // 响应类型
+  map<string, string> additional_params = 11; // 附加参数
+}
+
+// SAML配置
+message SAMLConfig {
+  string entity_id = 1; // 实体ID
+  string idp_entity_id = 2; // IdP实体ID
+  string idp_sso_url = 3; // IdP SSO URL
+  string idp_certificate = 4; // IdP证书
+  string sp_certificate = 5; // SP证书
+  string sp_private_key = 6; // SP私钥
+  string assertion_consumer_service_url = 7; // 断言消费者服务URL
+  string name_id_format = 8; // NameID格式
+  bool sign_requests = 9; // 是否签名请求
+  bool sign_assertions = 10; // 是否签名断言
+  bool encrypt_assertions = 11; // 是否加密断言
+  map<string, string> additional_params = 12; // 附加参数
+}
+
+// LDAP配置
+message LDAPConfig {
+  string server_url = 1; // 服务器URL
+  uint32 port = 2; // 端口
+  bool use_ssl = 3; // 是否使用SSL
+  bool use_tls = 4; // 是否使用TLS
+  string bind_dn = 5; // 绑定DN
+  string bind_password = 6; // 绑定密码
+  string search_base = 7; // 搜索基础
+  string search_filter = 8; // 搜索过滤器
+  string user_id_attribute = 9; // 用户ID属性
+  string username_attribute = 10; // 用户名属性
+  string email_attribute = 11; // 电子邮件属性
+  string name_attribute = 12; // 姓名属性
+  repeated string group_search_bases = 13; // 组搜索基础
+  string group_search_filter = 14; // 组搜索过滤器
+  string group_name_attribute = 15; // 组名称属性
+  uint32 connection_timeout = 16; // 连接超时(秒)
+  uint32 request_timeout = 17; // 请求超时(秒)
+  map<string, string> additional_params = 18; // 附加参数
+}
+
+// Active Directory配置
+message ActiveDirectoryConfig {
+  string domain = 1; // 域
+  string server_url = 2; // 服务器URL
+  uint32 port = 3; // 端口
+  bool use_ssl = 4; // 是否使用SSL
+  bool use_tls = 5; // 是否使用TLS
+  string service_account_username = 6; // 服务账户用户名
+  string service_account_password = 7; // 服务账户密码
+  string search_base = 8; // 搜索基础
+  string user_search_filter = 9; // 用户搜索过滤器
+  string group_search_filter = 10; // 组搜索过滤器
+  string user_id_attribute = 11; // 用户ID属性
+  string username_attribute = 12; // 用户名属性
+  string email_attribute = 13; // 电子邮件属性
+  string name_attribute = 14; // 姓名属性
+  string group_name_attribute = 15; // 组名称属性
+  uint32 connection_timeout = 16; // 连接超时(秒)
+  uint32 request_timeout = 17; // 请求超时(秒)
+  map<string, string> additional_params = 18; // 附加参数
+}
+
+// 属性映射配置
+message AttributeMappingConfig {
+  string id_attribute = 1; // ID属性
+  string username_attribute = 2; // 用户名属性
+  string email_attribute = 3; // 电子邮件属性
+  string first_name_attribute = 4; // 名字属性
+  string last_name_attribute = 5; // 姓氏属性
+  string display_name_attribute = 6; // 显示名称属性
+  string phone_attribute = 7; // 电话属性
+  string groups_attribute = 8; // 组属性
+  string roles_attribute = 9; // 角色属性
+  map<string, string> custom_attributes = 10; // 自定义属性映射
+}
+
+// 配置同步配置
+message ProvisioningConfig {
+  bool auto_provision_users = 1; // 是否自动配置用户
+  bool auto_update_user_info = 2; // 是否自动更新用户信息
+  bool auto_provision_groups = 3; // 是否自动配置组
+  bool auto_link_users = 4; // 是否自动关联用户
+  bool deactivate_users = 5; // 是否停用用户
+  uint32 sync_interval_minutes = 6; // 同步间隔(分钟)
+  repeated string default_roles = 7; // 默认角色
+  repeated string default_groups = 8; // 默认组
+  map<string, string> group_mappings = 9; // 组映射
+  map<string, string> role_mappings = 10; // 角色映射
+}
+
+// 获取身份提供商配置请求
+message GetIdentityProviderConfigRequest {
+  string provider_id = 1; // 提供商ID
+}
+
+// 身份提供商配置
+message IdentityProviderConfig {
+  string provider_id = 1; // 提供商ID
+  string provider_name = 2; // 提供商名称
+  IdentityProviderType provider_type = 3; // 提供商类型
+  string display_name = 4; // 显示名称
+  string description = 5; // 描述
+  bool enabled = 6; // 是否启用
+  uint32 tenant_id = 7; // 租户ID
+  google.protobuf.Timestamp created_at = 8; // 创建时间
+  google.protobuf.Timestamp updated_at = 9; // 更新时间
+  
+  // 根据提供商类型，以下字段只会返回一个
+  OAuth2Config oauth2_config = 10; // OAuth2配置
+  OIDCConfig oidc_config = 11; // OIDC配置
+  SAMLConfig saml_config = 12; // SAML配置
+  LDAPConfig ldap_config = 13; // LDAP配置
+  ActiveDirectoryConfig active_directory_config = 14; // AD配置
+  google.protobuf.Struct custom_config = 15; // 自定义配置
+  
+  AttributeMappingConfig attribute_mapping = 16; // 属性映射配置
+  ProvisioningConfig provisioning_config = 17; // 配置同步配置
+}
+
+// 更新身份提供商配置请求
+message UpdateIdentityProviderConfigRequest {
+  string provider_id = 1; // 提供商ID
+  string display_name = 2; // 显示名称
+  string description = 3; // 描述
+  bool enabled = 4; // 是否启用
+  
+  // 根据提供商类型，以下字段至多填写一个
+  OAuth2Config oauth2_config = 5; // OAuth2配置
+  OIDCConfig oidc_config = 6; // OIDC配置
+  SAMLConfig saml_config = 7; // SAML配置
+  LDAPConfig ldap_config = 8; // LDAP配置
+  ActiveDirectoryConfig active_directory_config = 9; // AD配置
+  google.protobuf.Struct custom_config = 10; // 自定义配置
+  
+  AttributeMappingConfig attribute_mapping = 11; // 属性映射配置
+  ProvisioningConfig provisioning_config = 12; // 配置同步配置
+}
+
+// 删除身份提供商配置请求
+message DeleteIdentityProviderConfigRequest {
+  string provider_id = 1; // 提供商ID
+}
+
+// 列出身份提供商配置请求
+message ListIdentityProviderConfigsRequest {
+  pagination.PagingRequest paging = 1; // 分页请求
+  uint32 tenant_id = 2; // 租户ID(可选)
+  IdentityProviderType provider_type = 3; // 提供商类型(可选)
+  bool enabled_only = 4; // 仅启用的
+}
+
+// 列出身份提供商配置响应
+message ListIdentityProviderConfigsResponse {
+  pagination.PagingResponse paging = 1; // 分页响应
+  repeated IdentityProviderConfig configs = 2; // 配置列表
+}
+
+// 测试身份提供商连接请求
+message TestIdentityProviderConnectionRequest {
+  string provider_id = 1; // 提供商ID
+}
+
+// 测试身份提供商连接响应
+message TestIdentityProviderConnectionResponse {
+  bool success = 1; // 是否成功
+  string message = 2; // 消息
+  google.protobuf.Struct connection_details = 3; // 连接详情
+}
+
+// 获取身份提供商登录URL请求
+message GetIdentityProviderLoginURLRequest {
+  string provider_id = 1; // 提供商ID
+  string redirect_uri = 2; // 重定向URI
+  string state = 3; // 状态
+  map<string, string> additional_params = 4; // 附加参数
+}
+
+// 获取身份提供商登录URL响应
+message GetIdentityProviderLoginURLResponse {
+  string login_url = 1; // 登录URL
+}
+
+// 处理身份提供商回调请求
+message HandleIdentityProviderCallbackRequest {
+  string provider_id = 1; // 提供商ID
+  string code = 2; // 授权码(OAuth2/OIDC)
+  string state = 3; // 状态(OAuth2/OIDC)
+  string saml_response = 4; // SAML响应(SAML)
+  string relay_state = 5; // 中继状态(SAML)
+  map<string, string> additional_params = 6; // 附加参数
+}
+
+// 处理身份提供商回调响应
+message HandleIdentityProviderCallbackResponse {
+  bool success = 1; // 是否成功
+  string message = 2; // 消息
+  ExternalIdentityInfo identity_info = 3; // 身份信息
+  string access_token = 4; // 访问令牌
+  string refresh_token = 5; // 刷新令牌
+  uint32 expires_in = 6; // 过期时间(秒)
+  uint32 user_id = 7; // 用户ID(如果已关联)
+  bool is_new_user = 8; // 是否新用户
+}
+
+// 外部身份信息
+message ExternalIdentityInfo {
+  string provider_id = 1; // 提供商ID
+  string provider_name = 2; // 提供商名称
+  IdentityProviderType provider_type = 3; // 提供商类型
+  string external_id = 4; // 外部ID
+  string username = 5; // 用户名
+  string email = 6; // 电子邮件
+  string first_name = 7; // 名字
+  string last_name = 8; // 姓氏
+  string display_name = 9; // 显示名称
+  string phone = 10; // 电话
+  repeated string groups = 11; // 组
+  repeated string roles = 12; // 角色
+  google.protobuf.Struct raw_attributes = 13; // 原始属性
+  google.protobuf.Timestamp last_sync_at = 14; // 最后同步时间
+}
+
+// 关联外部身份请求
+message LinkExternalIdentityRequest {
+  uint32 user_id = 1; // 用户ID
+  string provider_id = 2; // 提供商ID
+  string external_id = 3; // 外部ID
+  string username = 4; // 用户名
+  string email = 5; // 电子邮件
+  google.protobuf.Struct raw_attributes = 6; // 原始属性
+}
+
+// 关联外部身份响应
+message LinkExternalIdentityResponse {
+  bool success = 1; // 是否成功
+  string message = 2; // 消息
+}
+
+// 解除外部身份关联请求
+message UnlinkExternalIdentityRequest {
+  uint32 user_id = 1; // 用户ID
+  string provider_id = 2; // 提供商ID
+}
+
+// 获取用户关联的外部身份请求
+message GetUserExternalIdentitiesRequest {
+  uint32 user_id = 1; // 用户ID
+}
+
+// 获取用户关联的外部身份响应
+message GetUserExternalIdentitiesResponse {
+  repeated ExternalIdentityInfo identities = 1; // 身份列表
+}
+
+// 同步用户信息请求
+message SyncUserFromExternalIdentityRequest {
+  uint32 user_id = 1; // 用户ID
+  string provider_id = 2; // 提供商ID
+  bool force_update = 3; // 是否强制更新
+}
+
+// 同步用户信息响应
+message SyncUserFromExternalIdentityResponse {
+  bool success = 1; // 是否成功
+  string message = 2; // 消息
+  repeated string updated_fields = 3; // 更新的字段
+}
+
+// 批量同步用户请求
+message BatchSyncUsersFromExternalIdentityRequest {
+  string provider_id = 1; // 提供商ID
+  bool force_update = 2; // 是否强制更新
+  bool create_missing_users = 3; // 是否创建缺失的用户
+  bool deactivate_missing_users = 4; // 是否停用缺失的用户
+}
+
+// 批量同步用户响应
+message BatchSyncUsersFromExternalIdentityResponse {
+  bool success = 1; // 是否成功
+  string message = 2; // 消息
+  uint32 total_users = 3; // 总用户数
+  uint32 updated_users = 4; // 更新的用户数
+  uint32 created_users = 5; // 创建的用户数
+  uint32 deactivated_users = 6; // 停用的用户数
+  uint32 failed_users = 7; // 失败的用户数
+  repeated string errors = 8; // 错误列表
+}
+
+// 获取身份提供商元数据请求
+message GetIdentityProviderMetadataRequest {
+  string provider_id = 1; // 提供商ID
+}
+
+// 获取身份提供商元数据响应
+message GetIdentityProviderMetadataResponse {
+  string metadata_xml = 1; // 元数据XML
+  string metadata_url = 2; // 元数据URL
+}
+
+// 导入SAML元数据请求
+message ImportSAMLMetadataRequest {
+  string provider_name = 1; // 提供商名称
+  string display_name = 2; // 显示名称
+  string description = 3; // 描述
+  bool enabled = 4; // 是否启用
+  uint32 tenant_id = 5; // 租户ID(可选)
+  string metadata_xml = 6; // 元数据XML
+  AttributeMappingConfig attribute_mapping = 7; // 属性映射配置
+  ProvisioningConfig provisioning_config = 8; // 配置同步配置
+}
+
+// 导入SAML元数据响应
+message ImportSAMLMetadataResponse {
+  string provider_id = 1; // 提供商ID
+  SAMLConfig saml_config = 2; // SAML配置
+}

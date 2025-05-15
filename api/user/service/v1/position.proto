@@ -1,4 +1,4 @@
-yntax = "proto3";
+syntax = "proto3";
 
 package api.user.service.v1;
 
@@ -6,8 +6,9 @@ import "gnostic/openapi/v3/annotations.proto";
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/field_mask.proto";
+import "google/api/field_behavior.proto";
 
-import "pagination/v1/pagination.proto";
+import "om-platform/pkg/utils/pagination/v1";
 
 option go_package = "om-platform/api/user/service/v1;v1";
 option java_multiple_files = true;
@@ -22,13 +23,22 @@ service PositionService {
   rpc GetPosition (GetPositionRequest) returns (Position) {}
 
   // 创建职位
-  rpc CreatePosition (CreatePositionRequest) returns (google.protobuf.Empty) {}
+  rpc CreatePosition (CreatePositionRequest) returns (CreatePositionResponse) {}
 
   // 更新职位
   rpc UpdatePosition (UpdatePositionRequest) returns (google.protobuf.Empty) {}
 
   // 删除职位
   rpc DeletePosition (DeletePositionRequest) returns (google.protobuf.Empty) {}
+  
+  // 批量获取职位
+  rpc BatchGetPosition (BatchGetPositionRequest) returns (BatchGetPositionResponse) {}
+  
+  // 批量创建职位
+  rpc BatchCreatePosition (BatchCreatePositionRequest) returns (BatchCreatePositionResponse) {}
+  
+  // 批量删除职位
+  rpc BatchDeletePosition (BatchDeletePositionRequest) returns (google.protobuf.Empty) {}
 }
 
 // 职位
@@ -115,4 +125,39 @@ message DeletePositionRequest {
   ]; // 操作用户ID
 
   uint32 id = 2;
+}
+
+// 创建职位 - 响应
+message CreatePositionResponse {
+  uint32 id = 1 [json_name = "id", (gnostic.openapi.v3.property) = {description: "新创建的职位ID"}]; // 新创建的职位ID
+}
+
+// 批量获取职位 - 请求
+message BatchGetPositionRequest {
+  repeated uint32 ids = 1 [(gnostic.openapi.v3.property) = {description: "职位ID列表"}]; // 职位ID列表
+}
+
+// 批量获取职位 - 响应
+message BatchGetPositionResponse {
+  repeated Position items = 1 [(gnostic.openapi.v3.property) = {description: "职位列表"}]; // 职位列表
+}
+
+// 批量创建职位 - 请求
+message BatchCreatePositionRequest {
+  optional uint32 operator_id = 1 [
+    (gnostic.openapi.v3.property) = {description: "操作用户ID", read_only: true},
+    json_name = "operatorId"
+  ]; // 操作用户ID
+
+  repeated Position items = 2 [(gnostic.openapi.v3.property) = {description: "要创建的职位列表"}]; // 要创建的职位列表
+}
+
+// 批量创建职位 - 响应
+message BatchCreatePositionResponse {
+  repeated uint32 ids = 1 [json_name = "ids", (gnostic.openapi.v3.property) = {description: "新创建的职位ID列表"}]; // 新创建的职位ID列表
+}
+
+// 批量删除职位 - 请求
+message BatchDeletePositionRequest {
+  repeated uint32 ids = 1 [(gnostic.openapi.v3.property) = {description: "要删除的职位ID列表"}]; // 要删除的职位ID列表
 }

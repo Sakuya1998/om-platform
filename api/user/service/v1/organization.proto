@@ -7,7 +7,8 @@ import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/field_mask.proto";
 
-import "pagination/v1/pagination.proto";
+import "om-platform/pkg/utils/pagination/v1";
+import "api/user/service/v1/permission.proto";
 
 option go_package = "om-platform/api/user/service/v1;v1";
 option java_multiple_files = true;
@@ -29,6 +30,15 @@ service OrganizationService {
 
   // 删除组织
   rpc DeleteOrganization (DeleteOrganizationRequest) returns (google.protobuf.Empty) {}
+  
+  // 获取组织权限列表
+  rpc GetOrganizationPermissions (GetOrganizationPermissionsRequest) returns (GetOrganizationPermissionsResponse) {}
+  
+  // 批量分配组织权限
+  rpc BatchAssignOrganizationPermission (BatchAssignOrganizationPermissionRequest) returns (google.protobuf.Empty) {}
+  
+  // 批量撤销组织权限
+  rpc BatchRevokeOrganizationPermission (BatchRevokeOrganizationPermissionRequest) returns (google.protobuf.Empty) {}
 }
 
 // 组织
@@ -112,4 +122,36 @@ message DeleteOrganizationRequest {
   ]; // 操作用户ID
 
   uint32 id = 2;
+}
+
+// 获取组织权限列表 - 请求
+message GetOrganizationPermissionsRequest {
+  uint32 organization_id = 1 [json_name = "organizationId"];
+}
+
+// 获取组织权限列表 - 响应
+message GetOrganizationPermissionsResponse {
+  repeated Permission permissions = 1;
+}
+
+// 批量分配组织权限 - 请求
+message BatchAssignOrganizationPermissionRequest {
+  optional uint32 operator_id = 1 [
+    (gnostic.openapi.v3.property) = {description: "操作用户ID", read_only: true},
+    json_name = "operatorId"
+  ]; // 操作用户ID
+  
+  uint32 organization_id = 2 [json_name = "organizationId"]; // 组织ID
+  repeated uint32 permission_ids = 3 [json_name = "permissionIds"]; // 权限ID列表
+}
+
+// 批量撤销组织权限 - 请求
+message BatchRevokeOrganizationPermissionRequest {
+  optional uint32 operator_id = 1 [
+    (gnostic.openapi.v3.property) = {description: "操作用户ID", read_only: true},
+    json_name = "operatorId"
+  ]; // 操作用户ID
+  
+  uint32 organization_id = 2 [json_name = "organizationId"]; // 组织ID
+  repeated uint32 permission_ids = 3 [json_name = "permissionIds"]; // 权限ID列表
 }

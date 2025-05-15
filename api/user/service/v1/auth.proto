@@ -1,0 +1,263 @@
+syntax = "proto3";
+
+package api.user.service.v1;
+
+import "gnostic/openapi/v3/annotations.proto";
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/field_mask.proto";
+
+import "om-platform/pkg/utils/pagination/v1";
+
+option go_package = "om-platform/api/user/service/v1;v1";
+option java_multiple_files = true;
+option java_package = "api.user.service.v1";
+
+// 认证与会话管理服务
+service AuthService {
+  // 用户登录
+  rpc Login (LoginRequest) returns (LoginResponse) {}
+  
+  // 用户登出
+  rpc Logout (LogoutRequest) returns (google.protobuf.Empty) {}
+  
+  // 刷新令牌
+  rpc RefreshToken (RefreshTokenRequest) returns (RefreshTokenResponse) {}
+  
+  // 验证令牌
+  rpc ValidateToken (ValidateTokenRequest) returns (ValidateTokenResponse) {}
+  
+  // 修改密码
+  rpc ChangePassword (ChangePasswordRequest) returns (google.protobuf.Empty) {}
+  
+  // 重置密码
+  rpc ResetPassword (ResetPasswordRequest) returns (google.protobuf.Empty) {}
+  
+  // 获取当前会话信息
+  rpc GetCurrentSession (GetCurrentSessionRequest) returns (SessionInfo) {}
+  
+  // 获取用户会话列表
+  rpc ListUserSessions (ListUserSessionsRequest) returns (ListUserSessionsResponse) {}
+  
+  // 终止指定会话
+  rpc TerminateSession (TerminateSessionRequest) returns (google.protobuf.Empty) {}
+  
+  // 终止所有会话(除当前会话外)
+  rpc TerminateAllSessions (TerminateAllSessionsRequest) returns (google.protobuf.Empty) {}
+  
+  // 获取登录历史记录
+  rpc GetLoginHistory (GetLoginHistoryRequest) returns (GetLoginHistoryResponse) {}
+  
+  // 双因素认证 - 启用
+  rpc Enable2FA (Enable2FARequest) returns (Enable2FAResponse) {}
+  
+  // 双因素认证 - 验证
+  rpc Verify2FA (Verify2FARequest) returns (Verify2FAResponse) {}
+  
+  // 双因素认证 - 禁用
+  rpc Disable2FA (Disable2FARequest) returns (google.protobuf.Empty) {}
+  
+  // 获取验证码
+  rpc GetCaptcha (GetCaptchaRequest) returns (GetCaptchaResponse) {}
+  
+  // 验证验证码
+  rpc VerifyCaptcha (VerifyCaptchaRequest) returns (VerifyCaptchaResponse) {}
+}
+
+// 登录请求
+message LoginRequest {
+  string username = 1; // 用户名
+  string password = 2; // 密码
+  string captcha_id = 3; // 验证码ID
+  string captcha_code = 4; // 验证码
+  string tenant_code = 5; // 租户编码(可选)
+  string client_ip = 6; // 客户端IP
+  string user_agent = 7; // 用户代理
+  string device_info = 8; // 设备信息
+  string login_type = 9; // 登录类型(PASSWORD/LDAP/SSO/OAUTH2)
+}
+
+// 登录响应
+message LoginResponse {
+  string access_token = 1; // 访问令牌
+  string refresh_token = 2; // 刷新令牌
+  uint32 expires_in = 3; // 过期时间(秒)
+  string token_type = 4; // 令牌类型
+  uint32 user_id = 5; // 用户ID
+  string username = 6; // 用户名
+  string real_name = 7; // 真实姓名
+  string avatar = 8; // 头像
+  repeated string permissions = 9; // 权限列表
+  repeated string roles = 10; // 角色列表
+  bool require_2fa = 11; // 是否需要双因素认证
+  string session_id = 12; // 会话ID
+}
+
+// 登出请求
+message LogoutRequest {
+  string session_id = 1; // 会话ID
+}
+
+// 刷新令牌请求
+message RefreshTokenRequest {
+  string refresh_token = 1; // 刷新令牌
+}
+
+// 刷新令牌响应
+message RefreshTokenResponse {
+  string access_token = 1; // 访问令牌
+  string refresh_token = 2; // 刷新令牌
+  uint32 expires_in = 3; // 过期时间(秒)
+  string token_type = 4; // 令牌类型
+}
+
+// 验证令牌请求
+message ValidateTokenRequest {
+  string token = 1; // 令牌
+}
+
+// 验证令牌响应
+message ValidateTokenResponse {
+  bool valid = 1; // 是否有效
+  uint32 user_id = 2; // 用户ID
+  string username = 3; // 用户名
+  repeated string permissions = 4; // 权限列表
+  repeated string roles = 5; // 角色列表
+  uint32 tenant_id = 6; // 租户ID
+}
+
+// 修改密码请求
+message ChangePasswordRequest {
+  uint32 user_id = 1; // 用户ID
+  string old_password = 2; // 旧密码
+  string new_password = 3; // 新密码
+}
+
+// 重置密码请求
+message ResetPasswordRequest {
+  uint32 user_id = 1; // 用户ID
+  string new_password = 2; // 新密码
+  string reset_token = 3; // 重置令牌
+}
+
+// 获取当前会话请求
+message GetCurrentSessionRequest {
+  string token = 1; // 访问令牌
+}
+
+// 会话信息
+message SessionInfo {
+  string session_id = 1; // 会话ID
+  uint32 user_id = 2; // 用户ID
+  string username = 3; // 用户名
+  string client_ip = 4; // 客户端IP
+  string user_agent = 5; // 用户代理
+  string device_info = 6; // 设备信息
+  string login_type = 7; // 登录类型
+  google.protobuf.Timestamp login_time = 8; // 登录时间
+  google.protobuf.Timestamp last_activity_time = 9; // 最后活动时间
+  bool is_current = 10; // 是否为当前会话
+}
+
+// 获取用户会话列表请求
+message ListUserSessionsRequest {
+  uint32 user_id = 1; // 用户ID
+}
+
+// 获取用户会话列表响应
+message ListUserSessionsResponse {
+  repeated SessionInfo sessions = 1; // 会话列表
+}
+
+// 终止会话请求
+message TerminateSessionRequest {
+  string session_id = 1; // 会话ID
+}
+
+// 终止所有会话请求
+message TerminateAllSessionsRequest {
+  uint32 user_id = 1; // 用户ID
+  string current_session_id = 2; // 当前会话ID(保留)
+}
+
+// 获取登录历史记录请求
+message GetLoginHistoryRequest {
+  uint32 user_id = 1; // 用户ID
+  pagination.PagingRequest paging = 2; // 分页请求
+}
+
+// 获取登录历史记录响应
+message GetLoginHistoryResponse {
+  repeated LoginHistoryEntry items = 1; // 登录历史记录
+  uint32 total = 2; // 总数
+}
+
+// 登录历史记录条目
+message LoginHistoryEntry {
+  uint32 id = 1; // 记录ID
+  uint32 user_id = 2; // 用户ID
+  string username = 3; // 用户名
+  string client_ip = 4; // 客户端IP
+  string user_agent = 5; // 用户代理
+  string device_info = 6; // 设备信息
+  string login_type = 7; // 登录类型
+  string login_status = 8; // 登录状态(SUCCESS/FAILED)
+  string failure_reason = 9; // 失败原因
+  google.protobuf.Timestamp login_time = 10; // 登录时间
+}
+
+// 启用双因素认证请求
+message Enable2FARequest {
+  uint32 user_id = 1; // 用户ID
+  string type = 2; // 类型(TOTP/SMS/EMAIL)
+}
+
+// 启用双因素认证响应
+message Enable2FAResponse {
+  string secret_key = 1; // 密钥(TOTP)
+  string qr_code = 2; // 二维码(TOTP)
+  string verification_code = 3; // 验证码(SMS/EMAIL)
+}
+
+// 验证双因素认证请求
+message Verify2FARequest {
+  uint32 user_id = 1; // 用户ID
+  string code = 2; // 验证码
+  string type = 3; // 类型(TOTP/SMS/EMAIL)
+}
+
+// 验证双因素认证响应
+message Verify2FAResponse {
+  bool success = 1; // 是否成功
+  string backup_codes = 2; // 备用码(逗号分隔)
+}
+
+// 禁用双因素认证请求
+message Disable2FARequest {
+  uint32 user_id = 1; // 用户ID
+  string verification_code = 2; // 验证码
+}
+
+// 获取验证码请求
+message GetCaptchaRequest {
+  string type = 1; // 类型(IMAGE/SMS/EMAIL)
+  string target = 2; // 目标(手机号/邮箱)
+}
+
+// 获取验证码响应
+message GetCaptchaResponse {
+  string captcha_id = 1; // 验证码ID
+  string captcha_image = 2; // 验证码图片(Base64)
+  uint32 expires_in = 3; // 过期时间(秒)
+}
+
+// 验证验证码请求
+message VerifyCaptchaRequest {
+  string captcha_id = 1; // 验证码ID
+  string captcha_code = 2; // 验证码
+}
+
+// 验证验证码响应
+message VerifyCaptchaResponse {
+  bool valid = 1; // 是否有效
+}

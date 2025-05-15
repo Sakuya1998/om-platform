@@ -1,0 +1,42 @@
+syntax = "proto3";
+
+package pagination;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "om-platform/pkg/utils/pagination/v1;v1";
+option java_multiple_files = true;
+option java_package = "pagination.v1";
+
+// 分页请求
+// 用于列表查询操作的通用分页请求结构
+message PagingRequest {
+  uint32 page_num = 1; // 页码，从1开始
+  uint32 page_size = 2; // 每页大小，默认为20
+  string sort_by = 3; // 排序字段，格式：field_name:asc/desc，例如：created_at:desc
+  repeated string filter_by = 4; // 过滤条件，格式：field_name:operator:value，例如：status:eq:active
+  bool count_total = 5; // 是否返回总记录数，默认为true
+  google.protobuf.Timestamp time_range_start = 6; // 时间范围开始
+  google.protobuf.Timestamp time_range_end = 7; // 时间范围结束
+  string time_field = 8; // 时间字段名称，默认为created_at
+  string search_keyword = 9; // 搜索关键字
+  map<string, string> extra_params = 10; // 额外参数
+}
+
+// 分页响应
+// 用于列表查询操作的通用分页响应结构
+message PagingResponse {
+  uint32 page_num = 1; // 当前页码
+  uint32 page_size = 2; // 每页大小
+  uint64 total = 3; // 总记录数
+  uint32 total_pages = 4; // 总页数
+  bool has_next = 5; // 是否有下一页
+  bool has_prev = 6; // 是否有上一页
+  string sort_by = 7; // 排序字段
+  repeated string filter_by = 8; // 过滤条件
+  google.protobuf.Timestamp time_range_start = 9; // 时间范围开始
+  google.protobuf.Timestamp time_range_end = 10; // 时间范围结束
+  string time_field = 11; // 时间字段名称
+  string search_keyword = 12; // 搜索关键字
+  map<string, string> extra_params = 13; // 额外参数
+}

@@ -1,0 +1,434 @@
+syntax = "proto3";
+
+package api.user.service.v1;
+
+import "gnostic/openapi/v3/annotations.proto";
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/struct.proto";
+import "google/protobuf/field_mask.proto";
+import "google/api/annotations.proto";
+import "google/api/field_behavior.proto";
+
+import "om-platform/pkg/utils/pagination/v1";
+
+option go_package = "om-platform/api/user/service/v1;v1";
+option java_multiple_files = true;
+option java_package = "api.user.service.v1";
+
+// 用户统计分析服务
+service UserAnalyticsService {
+  // 获取用户活跃度统计
+  rpc GetUserActivityStats (GetUserActivityStatsRequest) returns (GetUserActivityStatsResponse) {}
+  
+  // 获取用户行为分析
+  rpc GetUserBehaviorAnalysis (GetUserBehaviorAnalysisRequest) returns (GetUserBehaviorAnalysisResponse) {}
+  
+  // 获取用户增长趋势
+  rpc GetUserGrowthTrend (GetUserGrowthTrendRequest) returns (GetUserGrowthTrendResponse) {}
+  
+  // 获取用户分布统计
+  rpc GetUserDistributionStats (GetUserDistributionStatsRequest) returns (GetUserDistributionStatsResponse) {}
+
+  
+  // 获取用户留存分析
+  rpc GetUserRetentionAnalysis (GetUserRetentionAnalysisRequest) returns (GetUserRetentionAnalysisResponse) {}
+  
+  // 获取用户角色分布
+  rpc GetUserRoleDistribution (GetUserRoleDistributionRequest) returns (GetUserRoleDistributionResponse) {}
+  
+  // 获取用户权限使用情况
+  rpc GetUserPermissionUsage (GetUserPermissionUsageRequest) returns (GetUserPermissionUsageResponse) {}
+  
+  // 获取用户操作日志统计
+  rpc GetUserOperationLogStats (GetUserOperationLogStatsRequest) returns (GetUserOperationLogStatsResponse) {}
+  
+  // 批量获取用户统计数据
+  rpc BatchGetUserStats (BatchGetUserStatsRequest) returns (BatchGetUserStatsResponse) {}
+  
+  // 导出用户统计报告
+  rpc ExportUserStatsReport (ExportUserStatsReportRequest) returns (ExportUserStatsReportResponse) {}
+  
+  // 批量操作用户
+  rpc BatchProcessUsers (BatchProcessUsersRequest) returns (BatchProcessUsersResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/user-analytics/users:batchProcess"
+      body: "*"
+    };
+  }
+  
+  // 批量导入用户
+  rpc BatchImportUsers (BatchImportUsersRequest) returns (BatchImportUsersResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/user-analytics/users:batchImport"
+      body: "*"
+    };
+  }
+  
+  // 批量导出用户
+  rpc BatchExportUsers (BatchExportUsersRequest) returns (BatchExportUsersResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/user-analytics/users:batchExport"
+      body: "*"
+    };
+  }
+}
+
+// 获取用户活跃度统计请求
+message GetUserActivityStatsRequest {
+  google.protobuf.Timestamp start_time = 1 [
+    json_name = "startTime",
+    (gnostic.openapi.v3.property) = {description: "开始时间"}
+  ]; // 开始时间
+  
+  google.protobuf.Timestamp end_time = 2 [
+    json_name = "endTime",
+    (gnostic.openapi.v3.property) = {description: "结束时间"}
+  ]; // 结束时间
+  
+  string time_granularity = 3 [
+    json_name = "timeGranularity",
+    (gnostic.openapi.v3.property) = {
+      description: "时间粒度",
+      enum: [{yaml: "DAY"}, {yaml: "WEEK"}, {yaml: "MONTH"}]
+    }
+  ]; // 时间粒度(DAY/WEEK/MONTH)
+  
+  uint32 tenant_id = 4 [
+    json_name = "tenantId",
+    (gnostic.openapi.v3.property) = {description: "租户ID(可选)"}
+  ]; // 租户ID(可选)
+  
+  repeated uint32 department_ids = 5 [
+    json_name = "departmentIds",
+    (gnostic.openapi.v3.property) = {description: "部门ID列表(可选)"}
+  ]; // 部门ID列表(可选)
+}
+
+// 获取用户活跃度统计响应
+message GetUserActivityStatsResponse {
+  message ActivityDataPoint {
+    google.protobuf.Timestamp time_point = 1; // 时间点
+    uint32 daily_active_users = 2; // 日活跃用户数
+    uint32 weekly_active_users = 3; // 周活跃用户数
+    uint32 monthly_active_users = 4; // 月活跃用户数
+    float average_session_duration = 5; // 平均会话时长(分钟)
+    uint32 total_sessions = 6; // 总会话数
+    uint32 new_user_count = 7; // 新增用户数
+  }
+  
+  repeated ActivityDataPoint data_points = 1; // 数据点列表
+  uint32 total_users = 2; // 总用户数
+  uint32 active_users = 3; // 活跃用户数
+  uint32 inactive_users = 4; // 不活跃用户数
+  float activity_rate = 5; // 活跃率
+}
+
+// 获取用户行为分析请求
+message GetUserBehaviorAnalysisRequest {
+  google.protobuf.Timestamp start_time = 1; // 开始时间
+  google.protobuf.Timestamp end_time = 2; // 结束时间
+  repeated string action_types = 3; // 行为类型列表
+  uint32 tenant_id = 4; // 租户ID(可选)
+  repeated uint32 user_ids = 5; // 用户ID列表(可选)
+}
+
+// 获取用户行为分析响应
+message GetUserBehaviorAnalysisResponse {
+  message ActionTypeStats {
+    string action_type = 1; // 行为类型
+    uint32 count = 2; // 次数
+    float percentage = 3; // 百分比
+    repeated uint32 top_users = 4; // 排名前列的用户
+  }
+  
+  message UserActionStats {
+    uint32 user_id = 1; // 用户ID
+    string username = 2; // 用户名
+    map<string, uint32> action_counts = 3; // 行为计数
+    uint32 total_actions = 4; // 总行为数
+    google.protobuf.Timestamp last_action_time = 5; // 最后行为时间
+  }
+  
+  repeated ActionTypeStats action_type_stats = 1; // 行为类型统计
+  repeated UserActionStats user_action_stats = 2; // 用户行为统计
+  uint32 total_actions = 3; // 总行为数
+  uint32 unique_users = 4; // 独立用户数
+}
+
+// 获取用户增长趋势请求
+message GetUserGrowthTrendRequest {
+  google.protobuf.Timestamp start_time = 1; // 开始时间
+  google.protobuf.Timestamp end_time = 2; // 结束时间
+  string time_granularity = 3; // 时间粒度(DAY/WEEK/MONTH)
+  uint32 tenant_id = 4; // 租户ID(可选)
+}
+
+// 获取用户增长趋势响应
+message GetUserGrowthTrendResponse {
+  message GrowthDataPoint {
+    google.protobuf.Timestamp time_point = 1; // 时间点
+    uint32 new_users = 2; // 新增用户数
+    uint32 active_users = 3; // 活跃用户数
+    uint32 churned_users = 4; // 流失用户数
+    uint32 total_users = 5; // 总用户数
+    float growth_rate = 6; // 增长率
+    float churn_rate = 7; // 流失率
+  }
+  
+  repeated GrowthDataPoint data_points = 1; // 数据点列表
+  uint32 total_new_users = 2; // 总新增用户数
+  uint32 total_churned_users = 3; // 总流失用户数
+  float net_growth = 4; // 净增长率
+}
+
+// 获取用户分布统计请求
+message GetUserDistributionStatsRequest {
+  string distribution_type = 1; // 分布类型(DEPARTMENT/ROLE/TENANT/POSITION)
+  uint32 tenant_id = 2; // 租户ID(可选)
+}
+
+// 获取用户分布统计响应
+message GetUserDistributionStatsResponse {
+  message DistributionItem {
+    uint32 id = 1; // ID
+    string name = 2; // 名称
+    uint32 user_count = 3; // 用户数量
+    float percentage = 4; // 百分比
+  }
+  
+  repeated DistributionItem items = 1; // 分布项列表
+  uint32 total_users = 2; // 总用户数
+}
+
+// 获取用户留存分析请求
+message GetUserRetentionAnalysisRequest {
+  google.protobuf.Timestamp start_time = 1; // 开始时间
+  google.protobuf.Timestamp end_time = 2; // 结束时间
+  uint32 retention_days = 3; // 留存天数(1/7/30)
+  uint32 tenant_id = 4; // 租户ID(可选)
+}
+
+// 获取用户留存分析响应
+message GetUserRetentionAnalysisResponse {
+  message RetentionDataPoint {
+    google.protobuf.Timestamp cohort_date = 1; // 同期群日期
+    uint32 new_users = 2; // 新增用户数
+    map<string, float> retention_rates = 3; // 留存率(key为天数)
+  }
+  
+  repeated RetentionDataPoint data_points = 1; // 数据点列表
+  float average_retention_rate = 2; // 平均留存率
+}
+
+// 获取用户角色分布请求
+message GetUserRoleDistributionRequest {
+  uint32 tenant_id = 1; // 租户ID(可选)
+}
+
+// 获取用户角色分布响应
+message GetUserRoleDistributionResponse {
+  message RoleDistribution {
+    uint32 role_id = 1; // 角色ID
+    string role_name = 2; // 角色名称
+    uint32 user_count = 3; // 用户数量
+    float percentage = 4; // 百分比
+  }
+  
+  repeated RoleDistribution role_distributions = 1; // 角色分布
+  uint32 total_role_assignments = 2; // 总角色分配数
+  float average_roles_per_user = 3; // 每用户平均角色数
+}
+
+// 获取用户权限使用情况请求
+message GetUserPermissionUsageRequest {
+  google.protobuf.Timestamp start_time = 1; // 开始时间
+  google.protobuf.Timestamp end_time = 2; // 结束时间
+  repeated uint32 permission_ids = 3; // 权限ID列表(可选)
+  uint32 tenant_id = 4; // 租户ID(可选)
+}
+
+// 获取用户权限使用情况响应
+message GetUserPermissionUsageResponse {
+  message PermissionUsage {
+    uint32 permission_id = 1; // 权限ID
+    string permission_name = 2; // 权限名称
+    uint32 usage_count = 3; // 使用次数
+    uint32 unique_users = 4; // 独立用户数
+    float usage_percentage = 5; // 使用百分比
+  }
+  
+  repeated PermissionUsage permission_usages = 1; // 权限使用情况
+  uint32 total_permission_usages = 2; // 总权限使用次数
+}
+
+// 获取用户操作日志统计请求
+message GetUserOperationLogStatsRequest {
+  google.protobuf.Timestamp start_time = 1; // 开始时间
+  google.protobuf.Timestamp end_time = 2; // 结束时间
+  repeated string operation_types = 3; // 操作类型列表(可选)
+  uint32 tenant_id = 4; // 租户ID(可选)
+  repeated uint32 user_ids = 5; // 用户ID列表(可选)
+}
+
+// 获取用户操作日志统计响应
+message GetUserOperationLogStatsResponse {
+  message OperationTypeStats {
+    string operation_type = 1; // 操作类型
+    uint32 count = 2; // 次数
+    float percentage = 3; // 百分比
+  }
+  
+  message UserOperationStats {
+    uint32 user_id = 1; // 用户ID
+    string username = 2; // 用户名
+    uint32 operation_count = 3; // 操作次数
+    map<string, uint32> operation_type_counts = 4; // 操作类型计数
+  }
+  
+  message TimeDistributionStats {
+    string time_slot = 1; // 时间段
+    uint32 operation_count = 2; // 操作次数
+    float percentage = 3; // 百分比
+  }
+  
+  repeated OperationTypeStats operation_type_stats = 1; // 操作类型统计
+  repeated UserOperationStats top_users = 2; // 排名前列的用户
+  repeated TimeDistributionStats time_distribution = 3; // 时间分布
+  uint32 total_operations = 4; // 总操作次数
+  uint32 unique_users = 5; // 独立用户数
+}
+
+// 批量获取用户统计数据请求
+message BatchGetUserStatsRequest {
+  repeated uint32 user_ids = 1; // 用户ID列表
+  repeated string stat_types = 2; // 统计类型列表(LOGIN/OPERATION/PERMISSION/ROLE)
+  google.protobuf.Timestamp start_time = 3; // 开始时间
+  google.protobuf.Timestamp end_time = 4; // 结束时间
+}
+
+// 批量获取用户统计数据响应
+message BatchGetUserStatsResponse {
+  message UserStats {
+    uint32 user_id = 1; // 用户ID
+    string username = 2; // 用户名
+    uint32 login_count = 3; // 登录次数
+    uint32 operation_count = 4; // 操作次数
+    uint32 permission_count = 5; // 权限数量
+    uint32 role_count = 6; // 角色数量
+    google.protobuf.Timestamp last_login_time = 7; // 最后登录时间
+    google.protobuf.Timestamp last_operation_time = 8; // 最后操作时间
+    float activity_score = 9; // 活跃度评分
+  }
+  
+  repeated UserStats user_stats = 1; // 用户统计数据
+}
+
+// 导出用户统计报告请求
+message ExportUserStatsReportRequest {
+  string report_type = 1; // 报告类型(ACTIVITY/BEHAVIOR/GROWTH/DISTRIBUTION/RETENTION)
+  google.protobuf.Timestamp start_time = 2; // 开始时间
+  google.protobuf.Timestamp end_time = 3; // 结束时间
+  string format = 4; // 格式(CSV/EXCEL/PDF)
+  uint32 tenant_id = 5; // 租户ID(可选)
+}
+
+// 导出用户统计报告响应
+message ExportUserStatsReportResponse {
+  string report_url = 1; // 报告URL
+  string report_name = 2; // 报告名称
+  string format = 3; // 格式
+  uint64 file_size = 4; // 文件大小(字节)
+  google.protobuf.Timestamp generation_time = 5; // 生成时间
+}
+
+// 批量处理用户请求
+message BatchProcessUsersRequest {
+  enum BatchOperation {
+    ENABLE = 0; // 启用
+    DISABLE = 1; // 禁用
+    DELETE = 2; // 删除
+    ASSIGN_ROLE = 3; // 分配角色
+    REVOKE_ROLE = 4; // 撤销角色
+    ASSIGN_DEPARTMENT = 5; // 分配部门
+    CHANGE_TENANT = 6; // 变更租户
+    RESET_PASSWORD = 7; // 重置密码
+  }
+  
+  repeated uint32 user_ids = 1; // 用户ID列表
+  BatchOperation operation = 2; // 批量操作
+  map<string, string> operation_params = 3; // 操作参数
+  uint32 operator_id = 4; // 操作者ID
+}
+
+// 批量处理用户响应
+message BatchProcessUsersResponse {
+  message ProcessResult {
+    uint32 user_id = 1; // 用户ID
+    bool success = 2; // 是否成功
+    string error_message = 3; // 错误信息
+  }
+  
+  repeated ProcessResult results = 1; // 处理结果
+  uint32 success_count = 2; // 成功数量
+  uint32 failure_count = 3; // 失败数量
+  string batch_id = 4; // 批次ID
+}
+
+// 批量导入用户请求
+message BatchImportUsersRequest {
+  enum ImportSource {
+    CSV = 0; // CSV文件
+    EXCEL = 1; // Excel文件
+    JSON = 2; // JSON数据
+    LDAP = 3; // LDAP目录
+  }
+  
+  ImportSource source = 1; // 导入来源
+  string source_data = 2; // 源数据(文件URL或内容)
+  bool update_existing = 3; // 更新已存在用户
+  map<string, string> field_mapping = 4; // 字段映射
+  uint32 tenant_id = 5; // 租户ID
+  uint32 operator_id = 6; // 操作者ID
+}
+
+// 批量导入用户响应
+message BatchImportUsersResponse {
+  message ImportResult {
+    string identifier = 1; // 标识符(用户名或行号)
+    bool success = 2; // 是否成功
+    string error_message = 3; // 错误信息
+    uint32 user_id = 4; // 用户ID(成功时)
+  }
+  
+  repeated ImportResult results = 1; // 导入结果
+  uint32 total_records = 2; // 总记录数
+  uint32 success_count = 3; // 成功数量
+  uint32 failure_count = 4; // 失败数量
+  string batch_id = 5; // 批次ID
+}
+
+// 批量导出用户请求
+message BatchExportUsersRequest {
+  enum ExportFormat {
+    CSV = 0; // CSV文件
+    EXCEL = 1; // Excel文件
+    JSON = 2; // JSON数据
+  }
+  
+  ExportFormat format = 1; // 导出格式
+  repeated uint32 user_ids = 2; // 用户ID列表(为空表示导出所有)
+  repeated string fields = 3; // 导出字段列表
+  uint32 tenant_id = 4; // 租户ID(可选)
+  bool include_sensitive_info = 5; // 包含敏感信息
+}
+
+// 批量导出用户响应
+message BatchExportUsersResponse {
+  string export_url = 1; // 导出URL
+  string format = 2; // 格式
+  uint32 record_count = 3; // 记录数
+  uint64 file_size = 4; // 文件大小(字节)
+  google.protobuf.Timestamp export_time = 5; // 导出时间
+  string batch_id = 6; // 批次ID
+}

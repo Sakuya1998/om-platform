@@ -7,7 +7,8 @@ import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/field_mask.proto";
 
-import "pagination/v1/pagination.proto";
+import "om-platform/pkg/utils/pagination/v1";
+import "api/user/service/v1/permission.proto";
 
 option go_package = "om-platform/api/user/service/v1;v1";
 option java_multiple_files = true;
@@ -29,6 +30,27 @@ service TenantService {
 
   // 删除租户
   rpc DeleteTenant (DeleteTenantRequest) returns (google.protobuf.Empty) {}
+  
+  // 查询子租户列表
+  rpc ListSubTenant (ListSubTenantRequest) returns (ListTenantResponse) {}
+  
+  // 创建子租户
+  rpc CreateSubTenant (CreateSubTenantRequest) returns (google.protobuf.Empty) {}
+  
+  // 查询租户资源配额
+  rpc GetTenantQuota (GetTenantQuotaRequest) returns (TenantQuota) {}
+  
+  // 更新租户资源配额
+  rpc UpdateTenantQuota (UpdateTenantQuotaRequest) returns (google.protobuf.Empty) {}
+  
+  // 获取租户权限列表
+  rpc GetTenantPermissions (GetTenantPermissionsRequest) returns (GetTenantPermissionsResponse) {}
+  
+  // 批量分配租户权限
+  rpc BatchAssignTenantPermission (BatchAssignTenantPermissionRequest) returns (google.protobuf.Empty) {}
+  
+  // 批量撤销租户权限
+  rpc BatchRevokeTenantPermission (BatchRevokeTenantPermissionRequest) returns (google.protobuf.Empty) {}
 }
 
 // 租户
@@ -52,30 +74,45 @@ message Tenant {
     json_name = "memberCount",
     (gnostic.openapi.v3.property) = {description: "成员数量"}
   ];  // 成员数量
+  
+  optional uint32 parent_id = 5 [
+    json_name = "parentId",
+    (gnostic.openapi.v3.property) = {description: "父租户ID"}
+  ];  // 父租户ID
+  
+  optional int32 level = 6 [
+    json_name = "level",
+    (gnostic.openapi.v3.property) = {description: "租户层级"}
+  ];  // 租户层级
+  
+  optional string path = 7 [
+    json_name = "path",
+    (gnostic.openapi.v3.property) = {description: "租户路径，格式：1,2,3"}
+  ];  // 租户路径，格式：1,2,3
 
-  optional string status = 5 [(gnostic.openapi.v3.property) = {
+  optional string status = 8 [(gnostic.openapi.v3.property) = {
     description: "状态"
     default: { string: "ON" }
     enum: [{yaml: "ON"}, {yaml: "OFF"}]
   }];
 
-  optional string remark = 6 [
+  optional string remark = 9 [
     json_name = "remark",
     (gnostic.openapi.v3.property) = {
       description: "备注"
     }
   ]; // 备注
 
-  optional uint32 create_by = 7 [json_name = "createBy", (gnostic.openapi.v3.property) = {description: "创建者ID"}]; // 创建者ID
-  optional uint32 update_by = 8 [json_name = "updateBy", (gnostic.openapi.v3.property) = {description: "更新者ID"}]; // 更新者ID
+  optional uint32 create_by = 10 [json_name = "createBy", (gnostic.openapi.v3.property) = {description: "创建者ID"}]; // 创建者ID
+  optional uint32 update_by = 11 [json_name = "updateBy", (gnostic.openapi.v3.property) = {description: "更新者ID"}]; // 更新者ID
 
-  optional google.protobuf.Timestamp subscription_at = 10 [
+  optional google.protobuf.Timestamp subscription_at = 12 [
     json_name = "subscriptionAt",
     (gnostic.openapi.v3.property) = {
       description: "订阅时间"
     }
   ];
-  optional google.protobuf.Timestamp unsubscribe_at = 11 [
+  optional google.protobuf.Timestamp unsubscribe_at = 13 [
     json_name = "unsubscribeAt",
     (gnostic.openapi.v3.property) = {
       description: "退订时间"
@@ -139,4 +176,94 @@ message DeleteTenantRequest {
     (gnostic.openapi.v3.property) = {description: "操作用户ID", read_only: true},
     json_name = "operatorId"
   ]; // 操作用户ID
+}
+
+// 查询子租户列表 - 请求
+message ListSubTenantRequest {
+  uint32 parent_id = 1 [json_name = "parentId"];
+  pagination.PagingRequest paging = 2;
+}
+
+// 创建子租户 - 请求
+message CreateSubTenantRequest {
+  uint32 parent_id = 1 [json_name = "parentId"];
+  Tenant data = 2;
+  
+  optional uint32 operator_id = 3 [
+    (gnostic.openapi.v3.property) = {description: "操作用户ID", read_only: true},
+    json_name = "operatorId"
+  ]; // 操作用户ID
+}
+
+// 租户资源配额
+message TenantQuota {
+  optional uint32 id = 1 [json_name = "id", (gnostic.openapi.v3.property) = {description: "配额ID"}];
+  optional uint32 tenant_id = 2 [json_name = "tenantId", (gnostic.openapi.v3.property) = {description: "租户ID"}];
+  
+  optional int32 max_users = 3 [json_name = "maxUsers", (gnostic.openapi.v3.property) = {description: "最大用户数"}];
+  optional int32 max_groups = 4 [json_name = "maxGroups", (gnostic.openapi.v3.property) = {description: "最大用户组数"}];
+  optional int32 max_projects = 5 [json_name = "maxProjects", (gnostic.openapi.v3.property) = {description: "最大项目数"}];
+  optional int32 max_storage_gb = 6 [json_name = "maxStorageGb", (gnostic.openapi.v3.property) = {description: "最大存储空间(GB)"}];
+  optional int32 max_sub_tenants = 7 [json_name = "maxSubTenants", (gnostic.openapi.v3.property) = {description: "最大子租户数"}];
+  
+  optional uint32 create_by = 8 [json_name = "createBy", (gnostic.openapi.v3.property) = {description: "创建者ID"}];
+  optional uint32 update_by = 9 [json_name = "updateBy", (gnostic.openapi.v3.property) = {description: "更新者ID"}];
+  
+  optional google.protobuf.Timestamp create_time = 200 [json_name = "createTime", (gnostic.openapi.v3.property) = {description: "创建时间"}];
+  optional google.protobuf.Timestamp update_time = 201 [json_name = "updateTime", (gnostic.openapi.v3.property) = {description: "更新时间"}];
+}
+
+// 查询租户资源配额 - 请求
+message GetTenantQuotaRequest {
+  uint32 tenant_id = 1 [json_name = "tenantId"];
+}
+
+// 更新租户资源配额 - 请求
+message UpdateTenantQuotaRequest {
+  TenantQuota data = 1;
+  
+  google.protobuf.FieldMask update_mask = 2 [
+    (gnostic.openapi.v3.property) = {
+      description: "要更新的字段列表",
+      example: {yaml : "maxUsers,maxGroups,maxProjects"}
+    },
+    json_name = "updateMask"
+  ];
+  
+  optional uint32 operator_id = 3 [
+    (gnostic.openapi.v3.property) = {description: "操作用户ID", read_only: true},
+    json_name = "operatorId"
+  ]; // 操作用户ID
+}
+
+// 获取租户权限列表 - 请求
+message GetTenantPermissionsRequest {
+  uint32 tenant_id = 1 [json_name = "tenantId"];
+}
+
+// 获取租户权限列表 - 响应
+message GetTenantPermissionsResponse {
+  repeated Permission permissions = 1;
+}
+
+// 批量分配租户权限 - 请求
+message BatchAssignTenantPermissionRequest {
+  optional uint32 operator_id = 1 [
+    (gnostic.openapi.v3.property) = {description: "操作用户ID", read_only: true},
+    json_name = "operatorId"
+  ]; // 操作用户ID
+  
+  uint32 tenant_id = 2 [json_name = "tenantId"]; // 租户ID
+  repeated uint32 permission_ids = 3 [json_name = "permissionIds"]; // 权限ID列表
+}
+
+// 批量撤销租户权限 - 请求
+message BatchRevokeTenantPermissionRequest {
+  optional uint32 operator_id = 1 [
+    (gnostic.openapi.v3.property) = {description: "操作用户ID", read_only: true},
+    json_name = "operatorId"
+  ]; // 操作用户ID
+  
+  uint32 tenant_id = 2 [json_name = "tenantId"]; // 租户ID
+  repeated uint32 permission_ids = 3 [json_name = "permissionIds"]; // 权限ID列表
 }
