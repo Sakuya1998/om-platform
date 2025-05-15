@@ -10,7 +10,7 @@ import "google/protobuf/field_mask.proto";
 import "google/api/annotations.proto";
 import "google/api/field_behavior.proto";
 
-import "om-platform/pkg/utils/pagination/v1";
+import "pkg/utils/pagination/v1/pagination.proto";
 
 option go_package = "om-platform/api/user/service/v1;v1";
 option java_multiple_files = true;

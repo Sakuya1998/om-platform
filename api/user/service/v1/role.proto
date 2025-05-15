@@ -7,7 +7,7 @@ import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/field_mask.proto";
 
-import "om-platform/pkg/utils/pagination/v1";
+import "pkg/utils/pagination/v1/pagination.proto";
 import "api/user/service/v1/permission.proto";
 
 // 角色服务
