@@ -1,12 +1,12 @@
 syntax = "proto3";
 
-package pagination;
+package pkg.utils.pagination.v1;
 
 import "google/protobuf/timestamp.proto";
 
 option go_package = "om-platform/pkg/utils/pagination/v1;v1";
 option java_multiple_files = true;
-option java_package = "pagination.v1";
+option java_package = "pkg.utils.pagination.v1";
 
 // 分页请求
 // 用于列表查询操作的通用分页请求结构
