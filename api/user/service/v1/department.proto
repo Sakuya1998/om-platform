@@ -17,7 +17,7 @@ option java_package = "api.user.service.v1";
 // 部门服务
 service DepartmentService {
   // 查询部门列表
-  rpc ListDepartment (pagination.PagingRequest) returns (ListDepartmentResponse) {}
+  rpc ListDepartment (pkg.utils.pagination.v1.PagingRequest) returns (ListDepartmentResponse) {}
 
   // 查询部门详情
   rpc GetDepartment (GetDepartmentRequest) returns (Department) {}

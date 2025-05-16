@@ -5,7 +5,7 @@ package api.user.service.v1;
 import "gnostic/openapi/v3/annotations.proto";
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
-import "google/protobuf/field_mask.proto";
+// import "google/protobuf/field_mask.proto";
 
 import "pkg/utils/pagination/v1/pagination.proto";
 
@@ -16,7 +16,7 @@ option java_package = "api.user.service.v1";
 // 操作日志服务
 service OperationLogService {
   // 查询操作日志列表
-  rpc ListOperationLog (pagination.PagingRequest) returns (ListOperationLogResponse) {}
+  rpc ListOperationLog (pkg.utils.pagination.v1.PagingRequest) returns (ListOperationLogResponse) {}
 
   // 查询操作日志详情
   rpc GetOperationLog (GetOperationLogRequest) returns (OperationLog) {}
@@ -108,7 +108,7 @@ message OperationLog {
     }
   ];  // 操作类型
   
-  optional string resource_type = 6 [
+  optional string resource_type = 14 [
     json_name = "resourceType",
     (gnostic.openapi.v3.property) = {
       description: "资源类型",
@@ -125,7 +125,7 @@ message OperationLog {
     }
   ];  // 资源类型
   
-  optional uint32 resource_id = 7 [
+  optional uint32 resource_id = 15 [
     json_name = "resourceId",
     (gnostic.openapi.v3.property) = {description: "资源ID"}
   ];  // 资源ID
@@ -134,11 +134,6 @@ message OperationLog {
     json_name = "ipAddress",
     (gnostic.openapi.v3.property) = {description: "IP地址"}
   ];  // IP地址
-  
-  optional string user_agent = 9 [
-    json_name = "userAgent",
-    (gnostic.openapi.v3.property) = {description: "用户代理"}
-  ];  // 用户代理
   
   optional string operation_content = 10 [
     json_name = "operationContent",
@@ -195,7 +190,7 @@ message BatchGetOperationLogResponse {
 // 查询用户操作日志 - 请求
 message ListUserOperationLogRequest {
   uint32 user_id = 1 [json_name = "userId"];
-  pagination.PagingRequest paging = 2;
+  pkg.utils.pagination.v1.PagingRequest paging = 2;
   
   optional google.protobuf.Timestamp start_time = 3 [json_name = "startTime"];
   optional google.protobuf.Timestamp end_time = 4 [json_name = "endTime"];
@@ -205,7 +200,7 @@ message ListUserOperationLogRequest {
 // 查询租户操作日志 - 请求
 message ListTenantOperationLogRequest {
   uint32 tenant_id = 1 [json_name = "tenantId"];
-  pagination.PagingRequest paging = 2;
+  pkg.utils.pagination.v1.PagingRequest paging = 2;
   
   optional google.protobuf.Timestamp start_time = 3 [json_name = "startTime"];
   optional google.protobuf.Timestamp end_time = 4 [json_name = "endTime"];

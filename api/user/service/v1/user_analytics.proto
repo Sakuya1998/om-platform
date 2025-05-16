@@ -2,15 +2,8 @@ syntax = "proto3";
 
 package api.user.service.v1;
 
-import "gnostic/openapi/v3/annotations.proto";
-import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
-import "google/protobuf/struct.proto";
-import "google/protobuf/field_mask.proto";
-import "google/api/annotations.proto";
-import "google/api/field_behavior.proto";
-
-import "pkg/utils/pagination/v1/pagination.proto";
+import "gnostic/openapi/v3/annotations.proto";
 
 option go_package = "om-platform/api/user/service/v1;v1";
 option java_multiple_files = true;
@@ -50,28 +43,13 @@ service UserAnalyticsService {
   rpc ExportUserStatsReport (ExportUserStatsReportRequest) returns (ExportUserStatsReportResponse) {}
   
   // 批量操作用户
-  rpc BatchProcessUsers (BatchProcessUsersRequest) returns (BatchProcessUsersResponse) {
-    option (google.api.http) = {
-      post: "/api/v1/user-analytics/users:batchProcess"
-      body: "*"
-    };
-  }
+  rpc BatchProcessUsers (BatchProcessUsersRequest) returns (BatchProcessUsersResponse) {}
   
   // 批量导入用户
-  rpc BatchImportUsers (BatchImportUsersRequest) returns (BatchImportUsersResponse) {
-    option (google.api.http) = {
-      post: "/api/v1/user-analytics/users:batchImport"
-      body: "*"
-    };
-  }
+  rpc BatchImportUsers (BatchImportUsersRequest) returns (BatchImportUsersResponse) {}
   
   // 批量导出用户
-  rpc BatchExportUsers (BatchExportUsersRequest) returns (BatchExportUsersResponse) {
-    option (google.api.http) = {
-      post: "/api/v1/user-analytics/users:batchExport"
-      body: "*"
-    };
-  }
+  rpc BatchExportUsers (BatchExportUsersRequest) returns (BatchExportUsersResponse) {}
 }
 
 // 获取用户活跃度统计请求

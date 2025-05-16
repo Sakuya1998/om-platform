@@ -16,7 +16,7 @@
 
 syntax = "proto3";
 
-package openapi.v3;
+package gnostic.openapi.v3;
 
 import "google/protobuf/any.proto";
 

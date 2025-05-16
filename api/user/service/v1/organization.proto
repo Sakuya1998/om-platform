@@ -17,7 +17,7 @@ option java_package = "api.user.service.v1";
 // 组织服务
 service OrganizationService {
   // 查询组织列表
-  rpc ListOrganization (pagination.PagingRequest) returns (ListOrganizationResponse) {}
+  rpc ListOrganization (pkg.utils.pagination.v1.PagingRequest) returns (ListOrganizationResponse) {}
 
   // 查询组织详情
   rpc GetOrganization (GetOrganizationRequest) returns (Organization) {}

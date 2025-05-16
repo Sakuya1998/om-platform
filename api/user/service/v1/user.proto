@@ -2,15 +2,18 @@ syntax = "proto3";
 
 package api.user.service.v1;
 
-import "google/api/annotations.proto";
+//import "google/api/annotations.proto";
+
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
 import "google/api/field_behavior.proto";
-import "google/protobuf/struct.proto";
 import "google/protobuf/field_mask.proto";
+import "gnostic/openapi/v3/annotations.proto";
 
 import "pkg/utils/pagination/v1/pagination.proto";
-
+import "api/user/service/v1/permission.proto"; 
+import "api/user/service/v1/role.proto";       
+import "api/user/service/v1/operation_log.proto"; 
 option go_package = "om-platform/api/user/service/v1;v1";
 option java_multiple_files = true;
 option java_package = "api.user.service.v1";
@@ -19,7 +22,7 @@ option java_package = "api.user.service.v1";
 // 整合了用户基本信息管理和账户状态管理功能
 service UserService {
   // 查询用户列表
-  rpc ListUser (pagination.PagingRequest) returns (ListUserResponse) {}
+  rpc ListUser (pkg.utils.pagination.v1.PagingRequest) returns (ListUserResponse) {}
 
   // 查询用户详情
   rpc GetUser (GetUserRequest) returns (User) {}
@@ -94,7 +97,7 @@ service UserService {
   rpc EnableUser (EnableUserRequest) returns (google.protobuf.Empty) {}
   
   // 验证用户账户状态
-  rpc VerifyUserStatus (VerifyUserStatusRequest) returns (VerifyUserStatusResponse) {}
+  rpc VerifyUserAccountStatus (VerifyUserAccountStatusRequest) returns (VerifyUserAccountStatusResponse) {}
   
   // 获取用户安全策略
   rpc GetUserSecurityPolicy (GetUserSecurityPolicyRequest) returns (UserSecurityPolicy) {}
@@ -133,10 +136,10 @@ enum UserGender {
 }
 
 // 用户状态（基本状态）
-enum UserStatus {
-  OFF = 0;
-  ON = 1;
-}
+// enum UserAccountStatus {
+//  USER_ACCOUNT_OFF = 0;
+//  USER_ACCOUNT_ON = 1;
+//}
 
 // 用户
 message User {
@@ -225,7 +228,7 @@ message User {
     (gnostic.openapi.v3.property) = {description: "最后登录IP"}
   ]; // 最后登录IP
 
-  optional UserStatus status = 32 [(gnostic.openapi.v3.property) = {
+  optional UserAccountStatus status = 32 [(gnostic.openapi.v3.property) = {
     description: "用户状态"
     default: {string: "ON"}
     enum: [{yaml: "ON"}, {yaml: "OFF"}]
@@ -338,13 +341,13 @@ message CreateUserRequest {
   
   // 是否需要激活
   optional bool require_activation = 5 [
-    (gnostic.openapi.v3.property) = {description: "是否需要激活", default: {bool: false}},
+    (gnostic.openapi.v3.property) = {description: "是否需要激活", default: {boolean: false}},
     json_name = "requireActivation"
   ]; // 是否需要激活
   
   // 是否发送欢迎邮件
   optional bool send_welcome_email = 6 [
-    (gnostic.openapi.v3.property) = {description: "是否发送欢迎邮件", default: {bool: false}},
+    (gnostic.openapi.v3.property) = {description: "是否发送欢迎邮件", default: {boolean: false}},
     json_name = "sendWelcomeEmail"
   ]; // 是否发送欢迎邮件
   
@@ -591,7 +594,7 @@ enum UserAccountStatus {
   INACTIVE = 1;  // 未激活
   LOCKED = 2;    // 已锁定
   DISABLED = 3;  // 已禁用
-  DELETED = 4;   // 已删除
+  ACCOUNT_DELETED = 4;   // 已删除
 }
 
 // 激活用户账户 - 请求
@@ -651,12 +654,12 @@ message EnableUserRequest {
 }
 
 // 验证用户账户状态 - 请求
-message VerifyUserStatusRequest {
+message VerifyUserAccountStatusRequest {
   uint32 user_id = 1 [json_name = "userId", (gnostic.openapi.v3.property) = {description: "用户ID"}];
 }
 
 // 验证用户账户状态 - 响应
-message VerifyUserStatusResponse {
+message VerifyUserAccountStatusResponse {
   UserAccountStatus status = 1 [json_name = "status", (gnostic.openapi.v3.property) = {description: "账户状态"}];
   bool can_login = 2 [json_name = "canLogin", (gnostic.openapi.v3.property) = {description: "是否可以登录"}];
   string reason = 3 [json_name = "reason", (gnostic.openapi.v3.property) = {description: "原因"}];
@@ -710,7 +713,7 @@ message UserActivityLog {
 // 获取用户活动日志 - 请求
 message GetUserActivityLogsRequest {
   uint32 user_id = 1 [json_name = "userId", (gnostic.openapi.v3.property) = {description: "用户ID"}];
-  pagination.PagingRequest paging = 2 [json_name = "paging", (gnostic.openapi.v3.property) = {description: "分页请求"}];
+  pkg.utils.pagination.v1.PagingRequest paging = 2 [json_name = "paging", (gnostic.openapi.v3.property) = {description: "分页请求"}];
   string activity_type = 3 [json_name = "activityType", (gnostic.openapi.v3.property) = {description: "活动类型"}];
   google.protobuf.Timestamp start_time = 4 [json_name = "startTime", (gnostic.openapi.v3.property) = {description: "开始时间"}];
   google.protobuf.Timestamp end_time = 5 [json_name = "endTime", (gnostic.openapi.v3.property) = {description: "结束时间"}];
@@ -718,6 +721,6 @@ message GetUserActivityLogsRequest {
 
 // 获取用户活动日志 - 响应
 message GetUserActivityLogsResponse {
-  pagination.PagingResponse paging = 1 [json_name = "paging", (gnostic.openapi.v3.property) = {description: "分页响应"}];
+  pkg.utils.pagination.v1.PagingResponse paging = 1 [json_name = "paging", (gnostic.openapi.v3.property) = {description: "分页响应"}];
   repeated UserActivityLog logs = 2 [json_name = "logs", (gnostic.openapi.v3.property) = {description: "日志列表"}];
 }

@@ -17,7 +17,7 @@ option java_package = "api.user.service.v1";
 // 租户服务
 service TenantService {
   // 查询租户列表
-  rpc ListTenant (pagination.PagingRequest) returns (ListTenantResponse) {}
+  rpc ListTenant (pkg.utils.pagination.v1.PagingRequest) returns (ListTenantResponse) {}
 
   // 查询租户详情
   rpc GetTenant (GetTenantRequest) returns (Tenant) {}
@@ -181,7 +181,7 @@ message DeleteTenantRequest {
 // 查询子租户列表 - 请求
 message ListSubTenantRequest {
   uint32 parent_id = 1 [json_name = "parentId"];
-  pagination.PagingRequest paging = 2;
+  pkg.utils.pagination.v1.PagingRequest paging = 2;
 }
 
 // 创建子租户 - 请求

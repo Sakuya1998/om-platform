@@ -16,7 +16,7 @@ option java_package = "api.user.service.v1";
 // 用户组服务
 service UserGroupService {
   // 查询用户组列表
-  rpc ListUserGroup (pagination.PagingRequest) returns (ListUserGroupResponse) {}
+  rpc ListUserGroup (pkg.utils.pagination.v1.PagingRequest) returns (ListUserGroupResponse) {}
 
   // 查询用户组详情
   rpc GetUserGroup (GetUserGroupRequest) returns (UserGroup) {}
@@ -145,7 +145,7 @@ message DeleteUserGroupRequest {
 // 用户组成员列表 - 请求
 message ListUserGroupMembersRequest {
   uint32 group_id = 1 [json_name = "groupId"];
-  pagination.PagingRequest paging = 2;
+  pkg.utils.pagination.v1.PagingRequest paging = 2;
 }
 
 // 用户组成员列表 - 响应

@@ -10,10 +10,14 @@ import "google/protobuf/field_mask.proto";
 import "pkg/utils/pagination/v1/pagination.proto";
 import "api/user/service/v1/permission.proto";
 
+option go_package = "om-platform/api/user/service/v1;v1";
+option java_multiple_files = true;
+option java_package = "api.user.service.v1";
+
 // 角色服务
 service RoleService {
   // 查询角色列表
-  rpc ListRole (pagination.PagingRequest) returns (ListRoleResponse) {}
+  rpc ListRole (pkg.utils.pagination.v1.PagingRequest) returns (ListRoleResponse) {}
 
   // 查询角色详情
   rpc GetRole (GetRoleRequest) returns (Role) {}
@@ -172,7 +176,7 @@ message GetRolePermissionsResponse {
 // 获取角色用户列表 - 请求
 message GetRoleUsersRequest {
   uint32 role_id = 1 [json_name = "roleId", (gnostic.openapi.v3.property) = {description: "角色ID"}];
-  pagination.PagingRequest paging = 2;
+  pkg.utils.pagination.v1.PagingRequest paging = 2;
 }
 
 // 用户状态（复制自user.proto，避免循环依赖）

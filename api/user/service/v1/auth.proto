@@ -2,11 +2,8 @@ syntax = "proto3";
 
 package api.user.service.v1;
 
-import "gnostic/openapi/v3/annotations.proto";
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
-import "google/protobuf/field_mask.proto";
-
 import "pkg/utils/pagination/v1/pagination.proto";
 
 option go_package = "om-platform/api/user/service/v1;v1";
@@ -183,7 +180,7 @@ message TerminateAllSessionsRequest {
 // 获取登录历史记录请求
 message GetLoginHistoryRequest {
   uint32 user_id = 1; // 用户ID
-  pagination.PagingRequest paging = 2; // 分页请求
+  pkg.utils.pagination.v1.PagingRequest paging = 2; // 分页请求
 }
 
 // 获取登录历史记录响应

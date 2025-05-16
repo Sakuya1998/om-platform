@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package api.user.service.v1;
 
-import "gnostic/openapi/v3/annotations.proto";
+// import "gnostic/openapi/v3/annotations.proto";
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/struct.proto";
@@ -271,7 +271,7 @@ message DeleteIdentityProviderConfigRequest {
 
 // 列出身份提供商配置请求
 message ListIdentityProviderConfigsRequest {
-  pagination.PagingRequest paging = 1; // 分页请求
+  pkg.utils.pagination.v1.PagingRequest paging = 1; // 分页请求
   uint32 tenant_id = 2; // 租户ID(可选)
   IdentityProviderType provider_type = 3; // 提供商类型(可选)
   bool enabled_only = 4; // 仅启用的
@@ -279,7 +279,7 @@ message ListIdentityProviderConfigsRequest {
 
 // 列出身份提供商配置响应
 message ListIdentityProviderConfigsResponse {
-  pagination.PagingResponse paging = 1; // 分页响应
+  pkg.utils.pagination.v1.PagingResponse paging = 1; // 分页响应
   repeated IdentityProviderConfig configs = 2; // 配置列表
 }
 

@@ -6,7 +6,7 @@ import "gnostic/openapi/v3/annotations.proto";
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/field_mask.proto";
-import "google/api/field_behavior.proto";
+// import "google/api/field_behavior.proto";
 
 import "pkg/utils/pagination/v1/pagination.proto";
 
@@ -17,7 +17,7 @@ option java_package = "api.user.service.v1";
 // 职位服务
 service PositionService {
   // 查询职位列表
-  rpc ListPosition (pagination.PagingRequest) returns (ListPositionResponse) {}
+  rpc ListPosition (pkg.utils.pagination.v1.PagingRequest) returns (ListPositionResponse) {}
 
   // 查询职位详情
   rpc GetPosition (GetPositionRequest) returns (Position) {}

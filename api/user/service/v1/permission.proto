@@ -16,7 +16,7 @@ option java_package = "api.user.service.v1";
 // 权限服务
 service PermissionService {
   // 查询权限列表
-  rpc ListPermission (pagination.PagingRequest) returns (ListPermissionResponse) {}
+  rpc ListPermission (pkg.utils.pagination.v1.PagingRequest) returns (ListPermissionResponse) {}
 
   // 获取权限详情
   rpc GetPermission (GetPermissionRequest) returns (Permission) {}

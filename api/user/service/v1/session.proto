@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package api.user.service.v1;
 
-import "gnostic/openapi/v3/annotations.proto";
+// import "gnostic/openapi/v3/annotations.proto";
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/struct.proto";
@@ -118,7 +118,7 @@ message DeleteSessionRequest {
 
 // 查询会话列表请求
 message ListSessionsRequest {
-  pagination.PagingRequest paging = 1; // 分页请求
+  pkg.utils.pagination.v1.PagingRequest paging = 1; // 分页请求
   uint32 user_id = 2; // 用户ID(可选)
   uint32 tenant_id = 3; // 租户ID(可选)
   string session_type = 4; // 会话类型(可选)
@@ -129,7 +129,7 @@ message ListSessionsRequest {
 
 // 查询会话列表响应
 message ListSessionsResponse {
-  pagination.PagingResponse paging = 1; // 分页响应
+  pkg.utils.pagination.v1.PagingResponse paging = 1; // 分页响应
   repeated SessionInfo sessions = 2; // 会话列表
 }
 
@@ -208,14 +208,14 @@ message BatchTerminateSessionsResponse {
 // 获取会话活动日志请求
 message GetSessionActivityLogsRequest {
   string session_id = 1; // 会话ID
-  pagination.PagingRequest paging = 2; // 分页请求
+  pkg.utils.pagination.v1.PagingRequest paging = 2; // 分页请求
   google.protobuf.Timestamp start_time = 3; // 开始时间
   google.protobuf.Timestamp end_time = 4; // 结束时间
 }
 
 // 获取会话活动日志响应
 message GetSessionActivityLogsResponse {
-  pagination.PagingResponse paging = 1; // 分页响应
+  pkg.utils.pagination.v1.PagingResponse paging = 1; // 分页响应
   repeated SessionActivityLog logs = 2; // 日志列表
 }
 
