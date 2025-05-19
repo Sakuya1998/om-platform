@@ -58,11 +58,8 @@ service UserService {
   // 撤销用户角色
   rpc RevokeUserRoles (RevokeUserRolesRequest) returns (google.protobuf.Empty) {}
   
-  // 修改用户密码
-  rpc ChangePassword (ChangePasswordRequest) returns (google.protobuf.Empty) {}
-  
-  // 重置用户密码
-  rpc ResetPassword (ResetPasswordRequest) returns (ResetPasswordResponse) {}
+  // 密码管理功能已迁移至AuthService
+  // 请使用AuthService中的ChangePassword和ResetPassword方法
   
   // 获取用户有效权限
   rpc GetUserEffectivePermissions (GetUserEffectivePermissionsRequest) returns (GetUserEffectivePermissionsResponse) {}
@@ -489,32 +486,8 @@ message RevokeUserRolesRequest {
   repeated uint32 role_ids = 3 [json_name = "roleIds", (gnostic.openapi.v3.property) = {description: "角色ID列表"}];
 }
 
-// 修改用户密码 - 请求
-message ChangePasswordRequest {
-  optional uint32 operator_id = 1 [
-    (gnostic.openapi.v3.property) = {description: "操作用户ID", read_only: true},
-    json_name = "operatorId"
-  ]; // 操作用户ID
-  
-  uint32 user_id = 2 [json_name = "userId", (gnostic.openapi.v3.property) = {description: "用户ID"}];
-  string old_password = 3 [json_name = "oldPassword", (gnostic.openapi.v3.property) = {description: "旧密码"}];
-  string new_password = 4 [json_name = "newPassword", (gnostic.openapi.v3.property) = {description: "新密码"}];
-}
-
-// 重置用户密码 - 请求
-message ResetPasswordRequest {
-  optional uint32 operator_id = 1 [
-    (gnostic.openapi.v3.property) = {description: "操作用户ID", read_only: true},
-    json_name = "operatorId"
-  ]; // 操作用户ID
-  
-  uint32 user_id = 2 [json_name = "userId", (gnostic.openapi.v3.property) = {description: "用户ID"}];
-}
-
-// 重置用户密码 - 响应
-message ResetPasswordResponse {
-  string password = 1 [json_name = "password", (gnostic.openapi.v3.property) = {description: "重置后的密码"}];
-}
+// 密码管理相关消息定义已迁移至auth.proto
+// 请使用auth.proto中的ChangePasswordRequest、ResetPasswordRequest和ResetPasswordResponse
 
 // 获取用户有效权限 - 请求
 message GetUserEffectivePermissionsRequest {
