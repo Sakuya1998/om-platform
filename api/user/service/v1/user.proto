@@ -13,13 +13,15 @@ import "gnostic/openapi/v3/annotations.proto";
 import "pkg/utils/pagination/v1/pagination.proto";
 import "api/user/service/v1/permission.proto"; 
 import "api/user/service/v1/role.proto";       
-import "api/user/service/v1/operation_log.proto"; 
+import "api/user/service/v1/operation_log.proto";
+import "api/user/service/v1/common.proto";
+import "api/user/service/v1/account.proto"; 
 option go_package = "om-platform/api/user/service/v1;v1";
 option java_multiple_files = true;
 option java_package = "api.user.service.v1";
 
 // 用户服务
-// 整合了用户基本信息管理和账户状态管理功能
+// 专注于用户基本信息管理功能
 service UserService {
   // 查询用户列表
   rpc ListUser (pkg.utils.pagination.v1.PagingRequest) returns (ListUserResponse) {}
@@ -76,43 +78,17 @@ service UserService {
   // 获取用户权限审计日志
   rpc GetUserPermissionAuditLogs (GetUserPermissionAuditLogsRequest) returns (GetUserPermissionAuditLogsResponse) {}
   
-  // ========== 账户状态管理功能（从AccountService迁移） ==========
-  
-  // 激活用户账户
-  rpc ActivateUser (ActivateUserRequest) returns (google.protobuf.Empty) {}
-  
-  // 锁定用户账户
-  rpc LockUser (LockUserRequest) returns (google.protobuf.Empty) {}
-  
-  // 解锁用户账户
-  rpc UnlockUser (UnlockUserRequest) returns (google.protobuf.Empty) {}
-  
-  // 禁用用户账户
-  rpc DisableUser (DisableUserRequest) returns (google.protobuf.Empty) {}
-  
-  // 启用用户账户
-  rpc EnableUser (EnableUserRequest) returns (google.protobuf.Empty) {}
-  
-  // 验证用户账户状态
-  rpc VerifyUserAccountStatus (VerifyUserAccountStatusRequest) returns (VerifyUserAccountStatusResponse) {}
-  
-  // 获取用户安全策略
-  rpc GetUserSecurityPolicy (GetUserSecurityPolicyRequest) returns (UserSecurityPolicy) {}
-  
-  // 更新用户安全策略
-  rpc UpdateUserSecurityPolicy (UpdateUserSecurityPolicyRequest) returns (google.protobuf.Empty) {}
-  
-  // 获取用户活动日志
-  rpc GetUserActivityLogs (GetUserActivityLogsRequest) returns (GetUserActivityLogsResponse) {}
+  // 注意：账户状态管理功能已迁移至AccountService
+  // 请使用AccountService中的相关方法
 }
 
 // 验证密码结果码
 enum VerifyPasswordResult {
-  SUCCESS = 0;  // 验证成功
-  ACCOUNT_NOT_EXISTS = 1; // 账号不存在
-  WRONG_PASSWORD = 2;// 密码错误
-  FREEZE = 3;// 已冻结
-  DELETED = 4;// 已删除
+  PASSWORD_VERIFY_SUCCESS = 0;       // 验证成功
+  PASSWORD_ACCOUNT_NOT_EXISTS = 1;   // 账号不存在
+  PASSWORD_WRONG = 2;                // 密码错误
+  PASSWORD_ACCOUNT_LOCKED = 3;       // 账户已锁定
+  PASSWORD_ACCOUNT_DELETED = 4;      // 账户已删除
 }
 
 // 用户权限
@@ -133,10 +109,8 @@ enum UserGender {
 }
 
 // 用户状态（基本状态）
-// enum UserAccountStatus {
-//  USER_ACCOUNT_OFF = 0;
-//  USER_ACCOUNT_ON = 1;
-//}
+// 注意：详细的账户状态定义已迁移至account.proto中的AccountStatus枚举
+// 此处仅保留基本状态用于兼容性考虑
 
 // 用户
 message User {
@@ -227,8 +201,8 @@ message User {
 
   optional UserAccountStatus status = 32 [(gnostic.openapi.v3.property) = {
     description: "用户状态"
-    default: {string: "ON"}
-    enum: [{yaml: "ON"}, {yaml: "OFF"}]
+    default: {string: "ACTIVE"}
+    enum: [{yaml: "ACTIVE"}, {yaml: "INACTIVE"}, {yaml: "LOCKED"}, {yaml: "DISABLED"}, {yaml: "ACCOUNT_DELETED"}]
   }]; // 用户状态
 
   optional UserAuthority authority = 33 [(gnostic.openapi.v3.property) = {
@@ -240,32 +214,6 @@ message User {
     description: "角色码"
   }]; // 角色码
   
-  // ========== 账户状态相关字段（从AccountService迁移） ==========
-  optional UserAccountStatus account_status = 35 [(gnostic.openapi.v3.property) = {
-    description: "账户状态"
-    default: {string: "ACTIVE"}
-  }]; // 账户状态
-  
-  optional google.protobuf.Timestamp last_password_change_time = 36 [
-    json_name = "lastPasswordChangeTime",
-    (gnostic.openapi.v3.property) = {description: "最后密码修改时间"}
-  ]; // 最后密码修改时间
-  
-  optional uint32 login_attempts = 37 [
-    json_name = "loginAttempts",
-    (gnostic.openapi.v3.property) = {description: "登录尝试次数"}
-  ]; // 登录尝试次数
-  
-  optional bool two_factor_enabled = 38 [
-    json_name = "twoFactorEnabled",
-    (gnostic.openapi.v3.property) = {description: "是否启用双因素认证"}
-  ]; // 是否启用双因素认证
-  
-  optional google.protobuf.Timestamp lock_expires_at = 39 [
-    json_name = "lockExpiresAt",
-    (gnostic.openapi.v3.property) = {description: "锁定过期时间"}
-  ]; // 锁定过期时间
-  
   map<string, string> metadata = 40 [
     json_name = "metadata",
     (gnostic.openapi.v3.property) = {description: "用户相关元数据"}
@@ -276,15 +224,15 @@ message User {
   optional google.protobuf.Timestamp delete_time = 202 [json_name = "deleteTime", (gnostic.openapi.v3.property) = {description: "删除时间"}];// 删除时间
 }
 
-// 获取用户列表 - 答复
+// 获取用户列表 - 响应
 message ListUserResponse {
-  repeated User items = 1;
-  uint32 total = 2;
+  repeated User items = 1 [json_name = "items", (gnostic.openapi.v3.property) = {description: "用户列表"}];
+  uint32 total = 2 [json_name = "total", (gnostic.openapi.v3.property) = {description: "总记录数"}];
 }
 
 // 获取用户数据 - 请求
 message GetUserRequest {
-  uint32 id = 1;
+  uint32 id = 1 [json_name = "id", (gnostic.openapi.v3.property) = {description: "用户ID"}];
 }
 
 // 批量获取用户信息 - 请求
@@ -309,6 +257,7 @@ message BatchGetUsersByIdsResponse {
   ];
 }
 
+// 根据用户名获取用户 - 请求
 message GetUserByUserNameRequest {
   string user_name = 1 [
     (gnostic.openapi.v3.property) = {description: "用户登录名", read_only: true},
@@ -336,23 +285,13 @@ message CreateUserRequest {
     json_name = "initialStatus"
   ]; // 初始账户状态
   
-  // 是否需要激活
-  optional bool require_activation = 5 [
-    (gnostic.openapi.v3.property) = {description: "是否需要激活", default: {boolean: false}},
-    json_name = "requireActivation"
-  ]; // 是否需要激活
-  
   // 是否发送欢迎邮件
   optional bool send_welcome_email = 6 [
     (gnostic.openapi.v3.property) = {description: "是否发送欢迎邮件", default: {boolean: false}},
     json_name = "sendWelcomeEmail"
   ]; // 是否发送欢迎邮件
   
-  // 初始安全策略
-  optional UserSecurityPolicy security_policy = 7 [
-    (gnostic.openapi.v3.property) = {description: "初始安全策略"},
-    json_name = "securityPolicy"
-  ]; // 初始安全策略
+  // 注意：账户安全策略相关功能已迁移至AccountService
 }
 
 // 更新用户 - 请求
@@ -413,7 +352,7 @@ message DeleteUserRequest {
     json_name = "operatorId"
   ]; // 操作用户ID
 
-  uint32 id = 2;
+  uint32 id = 2 [json_name = "id", (gnostic.openapi.v3.property) = {description: "要删除的用户ID"}];
 }
 
 // 验证密码 - 请求
@@ -428,9 +367,9 @@ message VerifyPasswordRequest {
     json_name = "password"
   ]; // 用户登录密码
 }
-// 验证密码 - 答复
+// 验证密码 - 响应
 message VerifyPasswordResponse {
-  VerifyPasswordResult result = 1;
+  VerifyPasswordResult result = 1 [json_name = "result", (gnostic.openapi.v3.property) = {description: "验证结果"}];
 }
 
 // 用户是否存在 - 请求
@@ -440,9 +379,9 @@ message UserExistsRequest {
     json_name = "userName"
   ]; // 用户登录名
 }
-// 用户是否存在 - 答复
+// 用户是否存在 - 响应
 message UserExistsResponse {
-  bool exist = 1;
+  bool exist = 1 [json_name = "exist", (gnostic.openapi.v3.property) = {description: "用户是否存在"}];
 }
 
 // 获取用户角色列表 - 请求
@@ -452,16 +391,16 @@ message GetUserRolesRequest {
 
 // 用户角色信息（简化版，避免循环依赖）
 message UserRole {
-  uint32 id = 1;
-  string name = 2;
-  string code = 3;
-  string status = 4;
-  string remark = 5;
+  uint32 id = 1 [json_name = "id", (gnostic.openapi.v3.property) = {description: "角色ID"}];
+  string name = 2 [json_name = "name", (gnostic.openapi.v3.property) = {description: "角色名称"}];
+  string code = 3 [json_name = "code", (gnostic.openapi.v3.property) = {description: "角色编码"}];
+  string status = 4 [json_name = "status", (gnostic.openapi.v3.property) = {description: "角色状态"}];
+  string remark = 5 [json_name = "remark", (gnostic.openapi.v3.property) = {description: "备注"}];
 }
 
 // 获取用户角色列表 - 响应
 message GetUserRolesResponse {
-  repeated UserRole roles = 1;
+  repeated UserRole roles = 1 [json_name = "roles", (gnostic.openapi.v3.property) = {description: "用户角色列表"}];
 }
 
 // 分配用户角色 - 请求
@@ -491,32 +430,32 @@ message RevokeUserRolesRequest {
 
 // 获取用户有效权限 - 请求
 message GetUserEffectivePermissionsRequest {
-  uint32 user_id = 1 [json_name = "userId"];
-  optional string resource_type = 2 [json_name = "resourceType"]; // 可选，按资源类型过滤
-  bool skip_cache = 3 [json_name = "skipCache"]; // 是否跳过缓存，强制重新计算权限
+  uint32 user_id = 1 [json_name = "userId", (gnostic.openapi.v3.property) = {description: "用户ID"}];
+  optional string resource_type = 2 [json_name = "resourceType", (gnostic.openapi.v3.property) = {description: "资源类型，可选，按资源类型过滤"}]; 
+  bool skip_cache = 3 [json_name = "skipCache", (gnostic.openapi.v3.property) = {description: "是否跳过缓存，强制重新计算权限"}]; 
 }
 
 // 获取用户有效权限 - 响应
 message GetUserEffectivePermissionsResponse {
-  repeated api.user.service.v1.Permission permissions = 1;
-  map<string, bool> permission_map = 2 [json_name = "permissionMap"]; // 权限编码到布尔值的映射，方便客户端快速查询
+  repeated api.user.service.v1.Permission permissions = 1 [json_name = "permissions", (gnostic.openapi.v3.property) = {description: "用户有效权限列表"}];
+  map<string, bool> permission_map = 2 [json_name = "permissionMap", (gnostic.openapi.v3.property) = {description: "权限编码到布尔值的映射，方便客户端快速查询"}]; 
 }
 
 // 检查用户权限 - 请求
 message CheckUserPermissionRequest {
-  uint32 user_id = 1 [json_name = "userId"];
-  string resource_identifier = 2 [json_name = "resourceIdentifier"];
-  string action = 3;
-  map<string, string> context = 4; // 上下文信息，用于条件表达式求值
-  bool skip_cache = 5 [json_name = "skipCache"]; // 是否跳过缓存，强制重新检查权限
+  uint32 user_id = 1 [json_name = "userId", (gnostic.openapi.v3.property) = {description: "用户ID"}];
+  string resource_identifier = 2 [json_name = "resourceIdentifier", (gnostic.openapi.v3.property) = {description: "资源标识符"}];
+  string action = 3 [json_name = "action", (gnostic.openapi.v3.property) = {description: "操作类型"}];
+  map<string, string> context = 4 [json_name = "context", (gnostic.openapi.v3.property) = {description: "上下文信息，用于条件表达式求值"}]; 
+  bool skip_cache = 5 [json_name = "skipCache", (gnostic.openapi.v3.property) = {description: "是否跳过缓存，强制重新检查权限"}]; 
 }
 
 // 检查用户权限 - 响应
 message CheckUserPermissionResponse {
-  bool has_permission = 1 [json_name = "hasPermission"];
-  string deny_reason = 2 [json_name = "denyReason"];
-  uint32 matched_permission_id = 3 [json_name = "matchedPermissionId"];
-  bool from_cache = 4 [json_name = "fromCache"]; // 结果是否来自缓存
+  bool has_permission = 1 [json_name = "hasPermission", (gnostic.openapi.v3.property) = {description: "是否拥有权限"}];
+  string deny_reason = 2 [json_name = "denyReason", (gnostic.openapi.v3.property) = {description: "拒绝原因"}];
+  uint32 matched_permission_id = 3 [json_name = "matchedPermissionId", (gnostic.openapi.v3.property) = {description: "匹配的权限ID"}];
+  bool from_cache = 4 [json_name = "fromCache", (gnostic.openapi.v3.property) = {description: "结果是否来自缓存"}]; 
 }
 
 // 清除用户权限缓存 - 请求
@@ -526,174 +465,63 @@ message ClearUserPermissionCacheRequest {
     json_name = "operatorId"
   ]; // 操作用户ID
   
-  optional uint32 user_id = 2 [json_name = "userId"]; // 指定用户ID，为空则清除所有用户的权限缓存
-  optional string resource_type = 3 [json_name = "resourceType"]; // 指定资源类型，为空则不按资源类型过滤
+  optional uint32 user_id = 2 [json_name = "userId", (gnostic.openapi.v3.property) = {description: "指定用户ID，为空则清除所有用户的权限缓存"}];
+  optional string resource_type = 3 [json_name = "resourceType", (gnostic.openapi.v3.property) = {description: "指定资源类型，为空则不按资源类型过滤"}];
 }
 
 // 获取用户动态角色 - 请求
 message GetUserDynamicRolesRequest {
-  uint32 user_id = 1 [json_name = "userId"];
-  bool evaluate_conditions = 2 [json_name = "evaluateConditions"]; // 是否评估动态条件
-  map<string, string> context = 3; // 上下文信息，用于条件表达式求值
+  uint32 user_id = 1 [json_name = "userId", (gnostic.openapi.v3.property) = {description: "用户ID"}];
+  bool evaluate_conditions = 2 [json_name = "evaluateConditions", (gnostic.openapi.v3.property) = {description: "是否评估动态条件"}];
+  map<string, string> context = 3 [json_name = "context", (gnostic.openapi.v3.property) = {description: "上下文信息，用于条件表达式求值"}];
 }
 
 // 获取用户动态角色 - 响应
 message GetUserDynamicRolesResponse {
-  repeated api.user.service.v1.Role roles = 1;
-  map<uint32, bool> condition_results = 2 [json_name = "conditionResults"]; // 角色ID到条件评估结果的映射
+  repeated api.user.service.v1.Role roles = 1 [json_name = "roles", (gnostic.openapi.v3.property) = {description: "动态角色列表"}];
+  map<uint32, bool> condition_results = 2 [json_name = "conditionResults", (gnostic.openapi.v3.property) = {description: "角色ID到条件评估结果的映射"}];
 }
 
 // 获取用户权限审计日志 - 请求
 message GetUserPermissionAuditLogsRequest {
-  uint32 user_id = 1 [json_name = "userId"];
-  optional google.protobuf.Timestamp start_time = 2 [json_name = "startTime"]; // 开始时间
-  optional google.protobuf.Timestamp end_time = 3 [json_name = "endTime"]; // 结束时间
-  optional string operation_type = 4 [json_name = "operationType"]; // 操作类型
-  int32 page_size = 5 [json_name = "pageSize"]; // 分页大小
-  int32 page_num = 6 [json_name = "pageNum"]; // 页码
+  uint32 user_id = 1 [json_name = "userId", (gnostic.openapi.v3.property) = {description: "用户ID"}];
+  optional google.protobuf.Timestamp start_time = 2 [json_name = "startTime", (gnostic.openapi.v3.property) = {description: "开始时间"}];
+  optional google.protobuf.Timestamp end_time = 3 [json_name = "endTime", (gnostic.openapi.v3.property) = {description: "结束时间"}];
+  optional string operation_type = 4 [json_name = "operationType", (gnostic.openapi.v3.property) = {description: "操作类型"}];
+  int32 page_size = 5 [json_name = "pageSize", (gnostic.openapi.v3.property) = {description: "分页大小"}];
+  int32 page_num = 6 [json_name = "pageNum", (gnostic.openapi.v3.property) = {description: "页码"}];
 }
 
 // 获取用户权限审计日志 - 响应
 message GetUserPermissionAuditLogsResponse {
-  repeated api.user.service.v1.OperationLog logs = 1;
-  int32 total = 2; // 总记录数
+  repeated api.user.service.v1.OperationLog logs = 1 [json_name = "logs", (gnostic.openapi.v3.property) = {description: "审计日志列表"}];
+  int32 total = 2 [json_name = "total", (gnostic.openapi.v3.property) = {description: "总记录数"}];
 }
 
-// ========== 账户状态管理相关消息定义（从AccountService迁移） ==========
+// ========== 账户状态管理相关消息定义 ==========
 
 // 用户账户状态
+// 注意：此枚举与account.proto中的AccountStatus保持语义一致性
+// 但使用不同的命名以避免混淆
 enum UserAccountStatus {
-  ACTIVE = 0;    // 活跃状态
-  INACTIVE = 1;  // 未激活
-  LOCKED = 2;    // 已锁定
-  DISABLED = 3;  // 已禁用
-  ACCOUNT_DELETED = 4;   // 已删除
+  ACTIVE = 0;          // 活跃状态
+  INACTIVE = 1;        // 未激活
+  LOCKED = 2;          // 已锁定
+  DISABLED = 3;        // 已禁用
+  ACCOUNT_DELETED = 4; // 已删除
 }
 
-// 激活用户账户 - 请求
-message ActivateUserRequest {
-  optional uint32 operator_id = 1 [
-    (gnostic.openapi.v3.property) = {description: "操作用户ID", read_only: true},
-    json_name = "operatorId"
-  ]; // 操作用户ID
-  
-  uint32 user_id = 2 [json_name = "userId", (gnostic.openapi.v3.property) = {description: "用户ID"}];
-  string activation_code = 3 [json_name = "activationCode", (gnostic.openapi.v3.property) = {description: "激活码"}];
-}
+// 注意：以下账户状态管理相关消息已迁移至account.proto
+// 请使用AccountService中的相关消息定义
 
-// 锁定用户账户 - 请求
-message LockUserRequest {
-  optional uint32 operator_id = 1 [
-    (gnostic.openapi.v3.property) = {description: "操作用户ID", read_only: true},
-    json_name = "operatorId"
-  ]; // 操作用户ID
-  
-  uint32 user_id = 2 [json_name = "userId", (gnostic.openapi.v3.property) = {description: "用户ID"}];
-  string reason = 3 [json_name = "reason", (gnostic.openapi.v3.property) = {description: "锁定原因"}];
-  uint32 lock_duration = 4 [json_name = "lockDuration", (gnostic.openapi.v3.property) = {description: "锁定时长(秒，0表示永久)"}];
-}
-
-// 解锁用户账户 - 请求
-message UnlockUserRequest {
-  optional uint32 operator_id = 1 [
-    (gnostic.openapi.v3.property) = {description: "操作用户ID", read_only: true},
-    json_name = "operatorId"
-  ]; // 操作用户ID
-  
-  uint32 user_id = 2 [json_name = "userId", (gnostic.openapi.v3.property) = {description: "用户ID"}];
-  string reason = 3 [json_name = "reason", (gnostic.openapi.v3.property) = {description: "解锁原因"}];
-}
-
-// 禁用用户账户 - 请求
-message DisableUserRequest {
-  optional uint32 operator_id = 1 [
-    (gnostic.openapi.v3.property) = {description: "操作用户ID", read_only: true},
-    json_name = "operatorId"
-  ]; // 操作用户ID
-  
-  uint32 user_id = 2 [json_name = "userId", (gnostic.openapi.v3.property) = {description: "用户ID"}];
-  string reason = 3 [json_name = "reason", (gnostic.openapi.v3.property) = {description: "禁用原因"}];
-}
-
-// 启用用户账户 - 请求
-message EnableUserRequest {
-  optional uint32 operator_id = 1 [
-    (gnostic.openapi.v3.property) = {description: "操作用户ID", read_only: true},
-    json_name = "operatorId"
-  ]; // 操作用户ID
-  
-  uint32 user_id = 2 [json_name = "userId", (gnostic.openapi.v3.property) = {description: "用户ID"}];
-  string reason = 3 [json_name = "reason", (gnostic.openapi.v3.property) = {description: "启用原因"}];
-}
-
-// 验证用户账户状态 - 请求
-message VerifyUserAccountStatusRequest {
-  uint32 user_id = 1 [json_name = "userId", (gnostic.openapi.v3.property) = {description: "用户ID"}];
-}
-
-// 验证用户账户状态 - 响应
-message VerifyUserAccountStatusResponse {
-  UserAccountStatus status = 1 [json_name = "status", (gnostic.openapi.v3.property) = {description: "账户状态"}];
-  bool can_login = 2 [json_name = "canLogin", (gnostic.openapi.v3.property) = {description: "是否可以登录"}];
-  string reason = 3 [json_name = "reason", (gnostic.openapi.v3.property) = {description: "原因"}];
-  google.protobuf.Timestamp lock_expires_at = 4 [json_name = "lockExpiresAt", (gnostic.openapi.v3.property) = {description: "锁定过期时间"}];
-}
-
-// 用户安全策略
-message UserSecurityPolicy {
-  uint32 user_id = 1 [json_name = "userId", (gnostic.openapi.v3.property) = {description: "用户ID"}];
-  bool password_expiry_enabled = 2 [json_name = "passwordExpiryEnabled", (gnostic.openapi.v3.property) = {description: "是否启用密码过期"}];
-  uint32 password_expiry_days = 3 [json_name = "passwordExpiryDays", (gnostic.openapi.v3.property) = {description: "密码过期天数"}];
-  bool password_history_enabled = 4 [json_name = "passwordHistoryEnabled", (gnostic.openapi.v3.property) = {description: "是否启用密码历史"}];
-  uint32 password_history_count = 5 [json_name = "passwordHistoryCount", (gnostic.openapi.v3.property) = {description: "密码历史数量"}];
-  bool account_lockout_enabled = 6 [json_name = "accountLockoutEnabled", (gnostic.openapi.v3.property) = {description: "是否启用账户锁定"}];
-  uint32 account_lockout_threshold = 7 [json_name = "accountLockoutThreshold", (gnostic.openapi.v3.property) = {description: "账户锁定阈值"}];
-  uint32 account_lockout_duration = 8 [json_name = "accountLockoutDuration", (gnostic.openapi.v3.property) = {description: "账户锁定时长(秒)"}];
-  bool two_factor_required = 9 [json_name = "twoFactorRequired", (gnostic.openapi.v3.property) = {description: "是否要求双因素认证"}];
-  repeated string allowed_ip_ranges = 10 [json_name = "allowedIpRanges", (gnostic.openapi.v3.property) = {description: "允许的IP范围"}];
-  repeated string allowed_devices = 11 [json_name = "allowedDevices", (gnostic.openapi.v3.property) = {description: "允许的设备"}];
-  bool concurrent_sessions_limited = 12 [json_name = "concurrentSessionsLimited", (gnostic.openapi.v3.property) = {description: "是否限制并发会话"}];
-  uint32 max_concurrent_sessions = 13 [json_name = "maxConcurrentSessions", (gnostic.openapi.v3.property) = {description: "最大并发会话数"}];
-}
-
-// 获取用户安全策略 - 请求
-message GetUserSecurityPolicyRequest {
-  uint32 user_id = 1 [json_name = "userId", (gnostic.openapi.v3.property) = {description: "用户ID"}];
-}
-
-// 更新用户安全策略 - 请求
-message UpdateUserSecurityPolicyRequest {
-  optional uint32 operator_id = 1 [
-    (gnostic.openapi.v3.property) = {description: "操作用户ID", read_only: true},
-    json_name = "operatorId"
-  ]; // 操作用户ID
-  
-  uint32 user_id = 2 [json_name = "userId", (gnostic.openapi.v3.property) = {description: "用户ID"}];
-  UserSecurityPolicy policy = 3 [json_name = "policy", (gnostic.openapi.v3.property) = {description: "安全策略"}];
-}
-
-// 用户活动日志
-message UserActivityLog {
-  string log_id = 1 [json_name = "logId", (gnostic.openapi.v3.property) = {description: "日志ID"}];
-  uint32 user_id = 2 [json_name = "userId", (gnostic.openapi.v3.property) = {description: "用户ID"}];
-  string activity_type = 3 [json_name = "activityType", (gnostic.openapi.v3.property) = {description: "活动类型"}];
-  string client_ip = 4 [json_name = "clientIp", (gnostic.openapi.v3.property) = {description: "客户端IP"}];
-  string user_agent = 5 [json_name = "userAgent", (gnostic.openapi.v3.property) = {description: "用户代理"}];
-  google.protobuf.Timestamp timestamp = 6 [json_name = "timestamp", (gnostic.openapi.v3.property) = {description: "时间戳"}];
-  map<string, string> details = 7 [json_name = "details", (gnostic.openapi.v3.property) = {description: "详情"}];
-}
-
-// 获取用户活动日志 - 请求
-message GetUserActivityLogsRequest {
-  uint32 user_id = 1 [json_name = "userId", (gnostic.openapi.v3.property) = {description: "用户ID"}];
-  pkg.utils.pagination.v1.PagingRequest paging = 2 [json_name = "paging", (gnostic.openapi.v3.property) = {description: "分页请求"}];
-  string activity_type = 3 [json_name = "activityType", (gnostic.openapi.v3.property) = {description: "活动类型"}];
-  google.protobuf.Timestamp start_time = 4 [json_name = "startTime", (gnostic.openapi.v3.property) = {description: "开始时间"}];
-  google.protobuf.Timestamp end_time = 5 [json_name = "endTime", (gnostic.openapi.v3.property) = {description: "结束时间"}];
-}
-
-// 获取用户活动日志 - 响应
-message GetUserActivityLogsResponse {
-  pkg.utils.pagination.v1.PagingResponse paging = 1 [json_name = "paging", (gnostic.openapi.v3.property) = {description: "分页响应"}];
-  repeated UserActivityLog logs = 2 [json_name = "logs", (gnostic.openapi.v3.property) = {description: "日志列表"}];
-}
+// 以下是账户状态管理相关消息的引用说明：
+// - 激活账户：使用 ActivateAccountRequest
+// - 锁定账户：使用 LockAccountRequest
+// - 解锁账户：使用 UnlockAccountRequest
+// - 禁用账户：使用 DisableAccountRequest
+// - 启用账户：使用 EnableAccountRequest
+// - 验证账户状态：使用 VerifyAccountStatusRequest/Response
+// - 账户安全策略：使用 AccountSecurityPolicy
+// - 获取账户安全策略：使用 GetAccountSecurityPolicyRequest
+// - 更新账户安全策略：使用 UpdateAccountSecurityPolicyRequest
+// - 获取账户活动日志：使用 GetAccountActivityLogsRequest/Response
