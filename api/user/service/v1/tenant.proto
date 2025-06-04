@@ -14,7 +14,28 @@ option go_package = "om-platform/api/user/service/v1;v1";
 option java_multiple_files = true;
 option java_package = "api.user.service.v1";
 
+// 租户状态
+enum TenantStatus {
+  TENANT_STATUS_UNSPECIFIED = 0 [
+    (gnostic.openapi.v3.property) = {description: "未指定"}
+  ]; // 未指定
+  TENANT_STATUS_ACTIVE = 1 [
+    (gnostic.openapi.v3.property) = {description: "活跃"}
+  ]; // 活跃
+  TENANT_STATUS_INACTIVE = 2 [
+    (gnostic.openapi.v3.property) = {description: "不活跃"}
+  ]; // 不活跃
+  TENANT_STATUS_SUSPENDED = 3 [
+    (gnostic.openapi.v3.property) = {description: "已暂停"}
+  ]; // 已暂停
+  TENANT_STATUS_DELETED = 4 [
+    (gnostic.openapi.v3.property) = {description: "已删除"}
+  ]; // 已删除
+}
+
 // 租户服务
+// 提供租户管理、配额控制和权限分配等功能
+// 错误处理：所有接口在发生错误时将返回ErrorResponse结构，包含统一的错误码、错误消息和详细信息
 service TenantService {
   // 查询租户列表
   rpc ListTenant (pkg.utils.pagination.v1.PagingRequest) returns (ListTenantResponse) {}
@@ -90,11 +111,10 @@ message Tenant {
     (gnostic.openapi.v3.property) = {description: "租户路径，格式：1,2,3"}
   ];  // 租户路径，格式：1,2,3
 
-  optional string status = 8 [(gnostic.openapi.v3.property) = {
-    description: "状态"
-    default: { string: "ON" }
-    enum: [{yaml: "ON"}, {yaml: "OFF"}]
-  }];
+  optional TenantStatus status = 8 [
+    json_name = "status",
+    (gnostic.openapi.v3.property) = {description: "租户状态"}
+  ]; // 租户状态
 
   optional string remark = 9 [
     json_name = "remark",

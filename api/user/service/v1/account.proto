@@ -15,6 +15,9 @@ option java_package = "api.user.service.v1";
 
 // 账户服务
 // 专注于账户状态管理功能
+// 负责所有用户账户状态的存储和变更操作
+// UserService中只保留对状态的引用，不直接修改状态
+// 错误处理：所有接口在发生错误时将返回ErrorResponse结构，包含统一的错误码、错误消息和详细信息
 service AccountService {
   // 激活用户账户
   rpc ActivateAccount (ActivateAccountRequest) returns (google.protobuf.Empty) {}

@@ -20,8 +20,10 @@ option go_package = "om-platform/api/user/service/v1;v1";
 option java_multiple_files = true;
 option java_package = "api.user.service.v1";
 
-// 用户服务
-// 专注于用户基本信息管理功能
+// 用户服务 (UserService)
+// 专注于用户基本信息管理功能，包括用户CRUD操作、用户角色分配和权限管理
+// 注意：账户状态管理功能已迁移至AccountService，密码管理功能已迁移至AuthService
+// 错误处理：所有接口在发生错误时将返回ErrorResponse结构，包含统一的错误码、错误消息和详细信息
 service UserService {
   // 查询用户列表
   rpc ListUser (pkg.utils.pagination.v1.PagingRequest) returns (ListUserResponse) {}
@@ -37,7 +39,8 @@ service UserService {
   rpc CreateUser (CreateUserRequest) returns (CreateUserResponse) {}
 
   // 更新用户
-  rpc UpdateUser (UpdateUserRequest) returns (google.protobuf.Empty) {}
+// 使用FieldMask明确指定需要更新的字段，提高API灵活性和安全性
+rpc UpdateUser (UpdateUserRequest) returns (google.protobuf.Empty) {}
 
   // 删除用户
   rpc DeleteUser (DeleteUserRequest) returns (google.protobuf.Empty) {}
@@ -46,6 +49,8 @@ service UserService {
   rpc GetUserByUserName (GetUserByUserNameRequest) returns (User) {}
 
   // 验证密码
+  // 注意：此方法仅验证密码正确性，不处理账户状态变更
+  // 账户锁定、密码过期等高级账户状态管理请使用AccountService
   rpc VerifyPassword (VerifyPasswordRequest) returns (VerifyPasswordResponse) {}
 
   // 用户是否存在
@@ -84,33 +89,25 @@ service UserService {
 
 // 验证密码结果码
 enum VerifyPasswordResult {
-  PASSWORD_VERIFY_SUCCESS = 0;       // 验证成功
-  PASSWORD_ACCOUNT_NOT_EXISTS = 1;   // 账号不存在
-  PASSWORD_WRONG = 2;                // 密码错误
-  PASSWORD_ACCOUNT_LOCKED = 3;       // 账户已锁定
-  PASSWORD_ACCOUNT_DELETED = 4;      // 账户已删除
+  VERIFY_PASSWORD_RESULT_UNSPECIFIED = 0; // 未指定
+  VERIFY_PASSWORD_RESULT_SUCCESS = 1;     // 验证成功
+  VERIFY_PASSWORD_RESULT_NOT_EXISTS = 2;  // 账号不存在
+  VERIFY_PASSWORD_RESULT_WRONG = 3;       // 密码错误
+  VERIFY_PASSWORD_RESULT_LOCKED = 4;      // 账户已锁定
+  VERIFY_PASSWORD_RESULT_DELETED = 5;     // 账户已删除
+  VERIFY_PASSWORD_RESULT_DISABLED = 6;    // 账户已禁用
+  VERIFY_PASSWORD_RESULT_EXPIRED = 7;     // 密码已过期
 }
 
-// 用户权限
-enum UserAuthority {
-  SYS_ADMIN = 0;  // 系统超级用户
-  SYS_MANAGER = 1;  // 系统管理员
-  CUSTOMER_USER = 2;  // 普通用户
-  GUEST_USER = 3;  // 游客
+// 注意：用户权限(UserAuthority)和用户性别(UserGender)枚举已迁移至common.proto
+// 请使用common.proto中的定义
 
-  REFRESH_TOKEN = 4; // 刷新令牌
-}
-
-// 用户性别
-enum UserGender {
-  SECRET = 0;  // 未知
-  MALE = 1;     // 男性
-  FEMALE = 2;   // 女性
-}
-
-// 用户状态（基本状态）
-// 注意：详细的账户状态定义已迁移至account.proto中的AccountStatus枚举
-// 此处仅保留基本状态用于兼容性考虑
+// 用户状态管理说明：
+// 1. 基础用户状态(UserAccountStatus)定义在common.proto中
+// 2. 详细账户状态(AccountStatus)定义在account.proto中
+// 3. 状态管理职责划分：
+//    - UserService: 仅引用账户状态，不存储也不负责状态变更
+//    - AccountService: 负责所有账户状态的存储和变更操作
 
 // 用户
 message User {
@@ -164,7 +161,7 @@ message User {
     (gnostic.openapi.v3.property) = {description: "座机号"}
   ]; // 手机号
 
-  optional UserGender gender = 17 [
+  optional api.user.service.v1.UserGender gender = 17 [
     json_name = "gender",
     (gnostic.openapi.v3.property) = {description: "性别"}
   ]; // 性别
@@ -199,15 +196,19 @@ message User {
     (gnostic.openapi.v3.property) = {description: "最后登录IP"}
   ]; // 最后登录IP
 
-  optional UserAccountStatus status = 32 [(gnostic.openapi.v3.property) = {
-    description: "用户状态"
-    default: {string: "ACTIVE"}
-    enum: [{yaml: "ACTIVE"}, {yaml: "INACTIVE"}, {yaml: "LOCKED"}, {yaml: "DISABLED"}, {yaml: "ACCOUNT_DELETED"}]
-  }]; // 用户状态
+  // 用户状态引用 - 不直接存储状态，仅引用AccountService中的状态
+  // 状态的实际存储和管理由AccountService负责
+  optional api.user.service.v1.UserAccountStatus account_status_ref = 32 [
+    json_name = "accountStatusRef",
+    (gnostic.openapi.v3.property) = {
+      description: "账户状态引用（只读）"
+      read_only: true
+    }
+  ]; // 账户状态引用（只读）
 
-  optional UserAuthority authority = 33 [(gnostic.openapi.v3.property) = {
+  optional api.user.service.v1.UserAuthority authority = 33 [(gnostic.openapi.v3.property) = {
     description: "权限"
-    default: {string: "CUSTOMER_USER"}
+    default: {string: "USER_AUTHORITY_USER"}
   }]; // 权限
 
   repeated string roles = 34 [(gnostic.openapi.v3.property) = {

@@ -14,6 +14,7 @@ option java_multiple_files = true;
 option java_package = "api.user.service.v1";
 
 // 权限服务
+// 错误处理：所有接口在发生错误时将返回ErrorResponse结构，包含统一的错误码、错误消息和详细信息
 service PermissionService {
   // 查询权限列表
   rpc ListPermission (pkg.utils.pagination.v1.PagingRequest) returns (ListPermissionResponse) {}
@@ -69,26 +70,62 @@ service PermissionService {
 
 // 权限类型
 enum PermissionType {
-  MENU = 0;      // 菜单权限
-  OPERATION = 1; // 操作权限
-  API = 2;       // API权限
-  DATA = 3;      // 数据权限
-  FUNCTION = 4;  // 功能权限
-  RESOURCE = 5;  // 资源权限
+  PERMISSION_TYPE_UNSPECIFIED = 0 [
+    (gnostic.openapi.v3.property) = {description: "未指定"}
+  ]; // 未指定
+  PERMISSION_TYPE_MENU = 1 [
+    (gnostic.openapi.v3.property) = {description: "菜单权限"}
+  ]; // 菜单权限
+  PERMISSION_TYPE_OPERATION = 2 [
+    (gnostic.openapi.v3.property) = {description: "操作权限"}
+  ]; // 操作权限
+  PERMISSION_TYPE_API = 3 [
+    (gnostic.openapi.v3.property) = {description: "API权限"}
+  ]; // API权限
+  PERMISSION_TYPE_DATA = 4 [
+    (gnostic.openapi.v3.property) = {description: "数据权限"}
+  ]; // 数据权限
+  PERMISSION_TYPE_FUNCTION = 5 [
+    (gnostic.openapi.v3.property) = {description: "功能权限"}
+  ]; // 功能权限
+  PERMISSION_TYPE_RESOURCE = 6 [
+    (gnostic.openapi.v3.property) = {description: "资源权限"}
+  ]; // 资源权限
 }
 
 // 权限条件表达式
 message PermissionCondition {
   enum ConditionOperator {
-    EQUALS = 0;       // 等于
-    NOT_EQUALS = 1;   // 不等于
-    GREATER_THAN = 2; // 大于
-    LESS_THAN = 3;    // 小于
-    IN = 4;           // 在列表中
-    NOT_IN = 5;       // 不在列表中
-    CONTAINS = 6;     // 包含
-    STARTS_WITH = 7;  // 以...开始
-    ENDS_WITH = 8;    // 以...结束
+    CONDITION_OPERATOR_UNSPECIFIED = 0 [
+      (gnostic.openapi.v3.property) = {description: "未指定"}
+    ]; // 未指定
+    CONDITION_OPERATOR_EQUALS = 1 [
+      (gnostic.openapi.v3.property) = {description: "等于"}
+    ]; // 等于
+    CONDITION_OPERATOR_NOT_EQUALS = 2 [
+      (gnostic.openapi.v3.property) = {description: "不等于"}
+    ]; // 不等于
+    CONDITION_OPERATOR_GREATER_THAN = 3 [
+      (gnostic.openapi.v3.property) = {description: "大于"}
+    ]; // 大于
+    CONDITION_OPERATOR_LESS_THAN = 4 [
+      (gnostic.openapi.v3.property) = {description: "小于"}
+    ]; // 小于
+    CONDITION_OPERATOR_IN = 5 [
+      (gnostic.openapi.v3.property) = {description: "在列表中"}
+    ]; // 在列表中
+    CONDITION_OPERATOR_NOT_IN = 6 [
+      (gnostic.openapi.v3.property) = {description: "不在列表中"}
+    ]; // 不在列表中
+    CONDITION_OPERATOR_CONTAINS = 7 [
+      (gnostic.openapi.v3.property) = {description: "包含"}
+    ]; // 包含
+    CONDITION_OPERATOR_STARTS_WITH = 8 [
+      (gnostic.openapi.v3.property) = {description: "以...开始"}
+    ]; // 以...开始
+    CONDITION_OPERATOR_ENDS_WITH = 9 [
+      (gnostic.openapi.v3.property) = {description: "以...结束"}
+    ]; // 以...结束
   }
   
   string field = 1;                // 条件字段

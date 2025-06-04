@@ -15,6 +15,7 @@ option java_package = "api.user.service.v1";
 
 // 认证与会话管理服务
 // 提供用户认证、令牌管理、会话控制和安全相关功能
+// 错误处理：所有接口在发生错误时将返回ErrorResponse结构，包含统一的错误码、错误消息和详细信息
 service AuthService {
   // ===== 认证核心接口 =====
   // 用户登录

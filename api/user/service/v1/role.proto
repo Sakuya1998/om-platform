@@ -15,6 +15,7 @@ option java_multiple_files = true;
 option java_package = "api.user.service.v1";
 
 // 角色服务
+// 错误处理：所有接口在发生错误时将返回ErrorResponse结构，包含统一的错误码、错误消息和详细信息
 service RoleService {
   // 查询角色列表
   rpc ListRole (pkg.utils.pagination.v1.PagingRequest) returns (ListRoleResponse) {}
@@ -55,10 +56,21 @@ service RoleService {
 
 // 角色类型
 enum RoleType {
-  SYSTEM = 0;     // 系统角色
-  CUSTOM = 1;     // 自定义角色
-  DYNAMIC = 2;    // 动态角色
-  TEMPORARY = 3;  // 临时角色
+  ROLE_TYPE_UNSPECIFIED = 0 [
+    (gnostic.openapi.v3.property) = {description: "未指定"}
+  ]; // 未指定
+  ROLE_TYPE_SYSTEM = 1 [
+    (gnostic.openapi.v3.property) = {description: "系统角色"}
+  ]; // 系统角色
+  ROLE_TYPE_CUSTOM = 2 [
+    (gnostic.openapi.v3.property) = {description: "自定义角色"}
+  ]; // 自定义角色
+  ROLE_TYPE_DYNAMIC = 3 [
+    (gnostic.openapi.v3.property) = {description: "动态角色"}
+  ]; // 动态角色
+  ROLE_TYPE_TEMPORARY = 4 [
+    (gnostic.openapi.v3.property) = {description: "临时角色"}
+  ]; // 临时角色
 }
 
 // 角色
