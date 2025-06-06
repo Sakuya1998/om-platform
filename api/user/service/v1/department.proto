@@ -104,6 +104,10 @@ service DepartmentService {
   // 权限要求：DEPARTMENT_READ 或 ADMIN 或 ORGANIZATION_MEMBER
   // 可能的错误码：PERMISSION_DENIED, INVALID_ARGUMENT
   rpc BatchGetDepartments (BatchGetDepartmentsRequest) returns (BatchGetDepartmentsResponse) {
+    option (google.api.http) = {
+      post: "/v1/departments/by-ids"
+      body: "*"
+    };
     option (cache) = {
       cacheable: true
       ttl_seconds: 60

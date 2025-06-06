@@ -104,6 +104,10 @@ service OrganizationService {
   // 权限要求：ORGANIZATION_READ 或 ADMIN
   // 可能的错误码：PERMISSION_DENIED, INVALID_ARGUMENT
   rpc BatchGetOrganizations (BatchGetOrganizationsRequest) returns (BatchGetOrganizationsResponse) {
+    option (google.api.http) = {
+      post: "/v1/organizations/by-ids"
+      body: "*"
+    };
     option (cache) = {
       cacheable: true
       ttl_seconds: 60

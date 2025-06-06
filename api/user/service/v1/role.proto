@@ -104,6 +104,10 @@ service RoleService {
   // 权限要求：ROLE_READ 或 ADMIN
   // 可能的错误码：PERMISSION_DENIED, INVALID_ARGUMENT
   rpc BatchGetRoles (BatchGetRolesRequest) returns (BatchGetRolesResponse) {
+    option (google.api.http) = {
+      post: "/v1/roles/by-ids"
+      body: "*"
+    };
     option (cache) = {
       cacheable: true
       ttl_seconds: 60

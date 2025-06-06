@@ -289,37 +289,87 @@ service UserService {
   // 清除指定用户的权限缓存，强制下次权限检查重新加载
   // 权限要求：PERMISSION_MANAGE 或 ADMIN
   // 可能的错误码：USER_NOT_FOUND, PERMISSION_DENIED
-  rpc ClearUserPermissionCache (ClearUserPermissionCacheRequest) returns (google.protobuf.Empty) {}
+  rpc ClearUserPermissionCache (ClearUserPermissionCacheRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      delete: "/v1/users/{user_id}/permissions/cache"
+    };
+    option (rate_limit) = {
+      requests_per_second: 10
+      burst: 20
+    };
+  }
   
   // 获取用户动态角色
   // 获取用户基于条件表达式动态计算的角色
   // 权限要求：ROLE_READ 或 ADMIN 或 SELF
   // 可能的错误码：USER_NOT_FOUND, PERMISSION_DENIED
-  rpc GetUserDynamicRoles (GetUserDynamicRolesRequest) returns (GetUserDynamicRolesResponse) {}
+  rpc GetUserDynamicRoles (GetUserDynamicRolesRequest) returns (GetUserDynamicRolesResponse) {
+    option (google.api.http) = {
+      get: "/v1/users/{user_id}/dynamic-roles"
+    };
+    option (cache) = {
+      ttl_seconds: 120
+      key_pattern: "user:{user_id}:dynamic_roles"
+    };
+  }
   
   // 获取用户权限审计日志
   // 获取用户权限变更的审计日志
   // 权限要求：AUDIT_READ 或 ADMIN
   // 可能的错误码：USER_NOT_FOUND, PERMISSION_DENIED
-  rpc GetUserPermissionAuditLogs (GetUserPermissionAuditLogsRequest) returns (GetUserPermissionAuditLogsResponse) {}
+  rpc GetUserPermissionAuditLogs (GetUserPermissionAuditLogsRequest) returns (GetUserPermissionAuditLogsResponse) {
+    option (google.api.http) = {
+      get: "/v1/users/{user_id}/permission-audit-logs"
+    };
+    option (cache) = {
+      ttl_seconds: 300
+      key_pattern: "user:{user_id}:audit_logs"
+    };
+  }
   
   // 流式获取用户列表
   // 适用于导出大量用户数据等场景
   // 权限要求：USER_READ 或 ADMIN
   // 可能的错误码：PERMISSION_DENIED, INVALID_ARGUMENT
-  rpc StreamUsers (StreamUsersRequest) returns (stream User) {}
+  rpc StreamUsers (StreamUsersRequest) returns (stream User) {
+    option (google.api.http) = {
+      get: "/v1/users/stream"
+    };
+    option (rate_limit) = {
+      requests_per_second: 5
+      burst: 10
+    };
+  }
   
   // 流式导出用户数据
   // 导出用户数据为指定格式
   // 权限要求：USER_EXPORT 或 ADMIN
   // 可能的错误码：PERMISSION_DENIED, INVALID_ARGUMENT
-  rpc ExportUsers (ExportUsersRequest) returns (stream ExportUsersResponse) {}
+  rpc ExportUsers (ExportUsersRequest) returns (stream ExportUsersResponse) {
+    option (google.api.http) = {
+      post: "/v1/users/export"
+      body: "*"
+    };
+    option (rate_limit) = {
+      requests_per_second: 2
+      burst: 5
+    };
+  }
   
   // 流式导入用户数据
   // 从指定格式导入用户数据
   // 权限要求：USER_IMPORT 或 ADMIN
   // 可能的错误码：PERMISSION_DENIED, INVALID_ARGUMENT
-  rpc ImportUsers (stream ImportUsersRequest) returns (ImportUsersResponse) {}
+  rpc ImportUsers (stream ImportUsersRequest) returns (ImportUsersResponse) {
+    option (google.api.http) = {
+      post: "/v1/users/import"
+      body: "*"
+    };
+    option (rate_limit) = {
+      requests_per_second: 1
+      burst: 3
+    };
+  }
 }
 
 // 用户

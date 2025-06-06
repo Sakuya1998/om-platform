@@ -47,13 +47,31 @@ service AccountService {
   //   "reason": "违反安全策略",
   //   "lock_until": "2023-12-31T23:59:59Z"
   // }
-  rpc UpdateAccountStatus (UpdateAccountStatusRequest) returns (google.protobuf.Empty) {}
+  rpc UpdateAccountStatus (UpdateAccountStatusRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      put: "/v1/account/status"
+      body: "*"
+    };
+    option (rate_limit) = {
+      requests_per_second: 100
+      burst: 200
+    };
+  }
 
   // 批量更新账户状态
   // 批量更新多个用户的账户状态
   // 权限要求：ACCOUNT_UPDATE 或 ADMIN
   // 可能的错误码：USER_NOT_FOUND, PERMISSION_DENIED, INVALID_ARGUMENT
-  rpc BatchUpdateAccountStatus (BatchUpdateAccountStatusRequest) returns (BatchUpdateAccountStatusResponse) {}
+  rpc BatchUpdateAccountStatus (BatchUpdateAccountStatusRequest) returns (BatchUpdateAccountStatusResponse) {
+    option (google.api.http) = {
+      put: "/v1/account/status/batch"
+      body: "*"
+    };
+    option (rate_limit) = {
+      requests_per_second: 50
+      burst: 100
+    };
+  }
 
   // 锁定账户
   // 锁定指定用户的账户
@@ -65,21 +83,48 @@ service AccountService {
   //   "reason": "违反安全策略",
   //   "lock_until": "2023-12-31T23:59:59Z"
   // }
-  rpc LockAccount (LockAccountRequest) returns (google.protobuf.Empty) {}
+  rpc LockAccount (LockAccountRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post: "/v1/account/lock"
+      body: "*"
+    };
+    option (rate_limit) = {
+      requests_per_second: 50
+      burst: 100
+    };
+  }
 
   // 解锁账户
   // 解锁指定用户的账户
   // 权限要求：ACCOUNT_UNLOCK 或 ADMIN
   // 可能的错误码：USER_NOT_FOUND, PERMISSION_DENIED
   // 示例请求: {"user_id": 123}
-  rpc UnlockAccount (UnlockAccountRequest) returns (google.protobuf.Empty) {}
+  rpc UnlockAccount (UnlockAccountRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post: "/v1/account/unlock"
+      body: "*"
+    };
+    option (rate_limit) = {
+      requests_per_second: 50
+      burst: 100
+    };
+  }
 
   // 启用账户
   // 启用指定用户的账户
   // 权限要求：ACCOUNT_ENABLE 或 ADMIN
   // 可能的错误码：USER_NOT_FOUND, PERMISSION_DENIED
   // 示例请求: {"user_id": 123}
-  rpc EnableAccount (EnableAccountRequest) returns (google.protobuf.Empty) {}
+  rpc EnableAccount (EnableAccountRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post: "/v1/account/enable"
+      body: "*"
+    };
+    option (rate_limit) = {
+      requests_per_second: 50
+      burst: 100
+    };
+  }
 
   // 禁用账户
   // 禁用指定用户的账户
@@ -90,7 +135,16 @@ service AccountService {
   //   "user_id": 123,
   //   "reason": "用户已离职"
   // }
-  rpc DisableAccount (DisableAccountRequest) returns (google.protobuf.Empty) {}
+  rpc DisableAccount (DisableAccountRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post: "/v1/account/disable"
+      body: "*"
+    };
+    option (rate_limit) = {
+      requests_per_second: 50
+      burst: 100
+    };
+  }
 
   // 获取账户配置
   // 获取指定用户的账户配置

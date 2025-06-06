@@ -152,12 +152,24 @@ service AuthenticationService {
   // 创建会话
   // 创建新的用户会话
   // 可能的错误码：USER_NOT_FOUND, PERMISSION_DENIED
-  rpc CreateSession (CreateSessionRequest) returns (CreateSessionResponse) {}
+  rpc CreateSession (CreateSessionRequest) returns (CreateSessionResponse) {
+    option (google.api.http) = {
+      post: "/v1/auth/sessions"
+      body: "*"
+    };
+    option (rate_limit) = {
+      requests_per_second: 20
+      burst: 50
+    };
+  }
 
   // 获取会话信息
   // 获取指定会话的详细信息
   // 可能的错误码：SESSION_NOT_FOUND, PERMISSION_DENIED
   rpc GetSession (GetSessionRequest) returns (SessionInfo) {
+    option (google.api.http) = {
+      get: "/v1/auth/sessions/{session_id}"
+    };
     option (cache) = {
       cacheable: true
       ttl_seconds: 60
@@ -168,37 +180,95 @@ service AuthenticationService {
   // 更新会话
   // 更新会话信息或延长会话有效期
   // 可能的错误码：SESSION_NOT_FOUND, PERMISSION_DENIED
-  rpc UpdateSession (UpdateSessionRequest) returns (google.protobuf.Empty) {}
+  rpc UpdateSession (UpdateSessionRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      put: "/v1/auth/sessions/{session_id}"
+      body: "*"
+    };
+    option (rate_limit) = {
+      requests_per_second: 30
+      burst: 60
+    };
+  }
 
   // 终止会话
   // 终止指定的用户会话
   // 可能的错误码：SESSION_NOT_FOUND, PERMISSION_DENIED
-  rpc TerminateSession (TerminateSessionRequest) returns (google.protobuf.Empty) {}
+  rpc TerminateSession (TerminateSessionRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      delete: "/v1/auth/sessions/{session_id}"
+    };
+    option (rate_limit) = {
+      requests_per_second: 20
+      burst: 40
+    };
+  }
 
   // 批量终止会话
   // 批量终止多个用户会话
   // 可能的错误码：PERMISSION_DENIED
-  rpc BatchTerminateSessions (BatchTerminateSessionsRequest) returns (BatchTerminateSessionsResponse) {}
+  rpc BatchTerminateSessions (BatchTerminateSessionsRequest) returns (BatchTerminateSessionsResponse) {
+    option (google.api.http) = {
+      post: "/v1/auth/sessions/batch-terminate"
+      body: "*"
+    };
+    option (rate_limit) = {
+      requests_per_second: 10
+      burst: 20
+    };
+  }
 
   // 查询用户会话
   // 查询指定用户的所有活动会话
   // 可能的错误码：USER_NOT_FOUND, PERMISSION_DENIED
-  rpc ListUserSessions (ListUserSessionsRequest) returns (ListUserSessionsResponse) {}
+  rpc ListUserSessions (ListUserSessionsRequest) returns (ListUserSessionsResponse) {
+    option (google.api.http) = {
+      get: "/v1/auth/users/{user_id}/sessions"
+    };
+    option (cache) = {
+      cacheable: true
+      ttl_seconds: 30
+      cache_keys: ["user_id"]
+    };
+  }
 
   // 获取登录历史记录
   // 获取用户的登录历史记录
   // 可能的错误码：USER_NOT_FOUND, PERMISSION_DENIED
-  rpc GetLoginHistory (GetLoginHistoryRequest) returns (GetLoginHistoryResponse) {}
+  rpc GetLoginHistory (GetLoginHistoryRequest) returns (GetLoginHistoryResponse) {
+    option (google.api.http) = {
+      get: "/v1/auth/users/{user_id}/login-history"
+    };
+    option (cache) = {
+      cacheable: true
+      ttl_seconds: 300
+      cache_keys: ["user_id"]
+    };
+  }
 
   // 设置双因素认证
   // 为用户启用或禁用双因素认证
   // 可能的错误码：USER_NOT_FOUND, PERMISSION_DENIED
-  rpc SetTwoFactorAuth (SetTwoFactorAuthRequest) returns (SetTwoFactorAuthResponse) {}
+  rpc SetTwoFactorAuth (SetTwoFactorAuthRequest) returns (SetTwoFactorAuthResponse) {
+    option (google.api.http) = {
+      post: "/v1/auth/users/{user_id}/two-factor"
+      body: "*"
+    };
+    option (rate_limit) = {
+      requests_per_minute: 5
+      burst: 3
+      per_ip: true
+    };
+  }
 
   // 验证双因素认证
   // 验证用户提供的双因素认证码
   // 可能的错误码：INVALID_VERIFICATION_CODE, TOO_MANY_ATTEMPTS
   rpc VerifyTwoFactorAuth (VerifyTwoFactorAuthRequest) returns (VerifyTwoFactorAuthResponse) {
+    option (google.api.http) = {
+      post: "/v1/auth/verify-two-factor"
+      body: "*"
+    };
     option (rate_limit) = {
       requests_per_minute: 5
       burst: 3

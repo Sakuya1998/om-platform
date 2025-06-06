@@ -1,0 +1,711 @@
+syntax = "proto3";
+
+package user.service.v1;
+
+import "google/api/annotations.proto";
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/field_mask.proto";
+import "google/protobuf/struct.proto";
+import "google/protobuf/descriptor.proto";
+import "validate/validate.proto";
+import "api/user/service/v1/common.proto";
+import "api/user/service/v1/error_codes.proto";
+
+option go_package = "om-platform/api/user/service/v1;userv1";
+option java_multiple_files = true;
+option java_package = "api.user.service.v1";
+
+// 审计日志服务 (AuditService)
+// 提供操作审计、安全审计和合规审计等功能
+// 错误处理：所有接口在发生错误时将返回ErrorResponse结构，包含统一的错误码、错误消息和详细信息
+// 性能说明：支持高并发写入，查询接口已实现分页和索引优化
+// 安全说明：审计日志不可篡改，支持数字签名验证
+service AuditService {
+  // 记录审计日志
+  // 记录用户操作、系统事件等审计信息
+  // 权限要求：AUDIT_WRITE 或 SYSTEM
+  // 可能的错误码：PERMISSION_DENIED, INVALID_ARGUMENT
+  rpc CreateAuditLog(CreateAuditLogRequest) returns (CreateAuditLogResponse) {
+    option (google.api.http) = {
+      post: "/v1/audit/logs"
+      body: "*"
+    };
+    option (rate_limit) = {
+      requests_per_second: 1000
+      burst: 2000
+    };
+  }
+
+  // 批量记录审计日志
+  // 批量记录多条审计日志，提高写入性能
+  // 权限要求：AUDIT_WRITE 或 SYSTEM
+  // 可能的错误码：PERMISSION_DENIED, INVALID_ARGUMENT
+  rpc BatchCreateAuditLogs(BatchCreateAuditLogsRequest) returns (BatchCreateAuditLogsResponse) {
+    option (google.api.http) = {
+      post: "/v1/audit/logs/batch"
+      body: "*"
+    };
+    option (rate_limit) = {
+      requests_per_second: 100
+      burst: 200
+    };
+  }
+
+  // 查询审计日志
+  // 根据条件查询审计日志，支持分页和排序
+  // 权限要求：AUDIT_READ 或 ADMIN
+  // 可能的错误码：PERMISSION_DENIED, INVALID_ARGUMENT
+  rpc ListAuditLogs(ListAuditLogsRequest) returns (ListAuditLogsResponse) {
+    option (google.api.http) = {
+      get: "/v1/audit/logs"
+    };
+    option (rate_limit) = {
+      requests_per_second: 200
+      burst: 400
+    };
+  }
+
+  // 获取审计日志详情
+  // 根据日志ID获取审计日志详细信息
+  // 权限要求：AUDIT_READ 或 ADMIN
+  // 可能的错误码：AUDIT_LOG_NOT_FOUND, PERMISSION_DENIED
+  rpc GetAuditLog(GetAuditLogRequest) returns (AuditLog) {
+    option (google.api.http) = {
+      get: "/v1/audit/logs/{log_id}"
+    };
+    option (cache) = {
+      ttl_seconds: 300
+      key_pattern: "audit:{log_id}"
+    };
+  }
+
+  // 导出审计日志
+  // 导出指定时间范围的审计日志
+  // 权限要求：AUDIT_EXPORT 或 ADMIN
+  // 可能的错误码：PERMISSION_DENIED, INVALID_ARGUMENT
+  rpc ExportAuditLogs(ExportAuditLogsRequest) returns (ExportAuditLogsResponse) {
+    option (google.api.http) = {
+      post: "/v1/audit/logs/export"
+      body: "*"
+    };
+    option (rate_limit) = {
+      requests_per_second: 10
+      burst: 20
+    };
+  }
+
+  // 获取审计统计
+  // 获取审计日志的统计信息
+  // 权限要求：AUDIT_READ 或 ADMIN
+  // 可能的错误码：PERMISSION_DENIED, INVALID_ARGUMENT
+  rpc GetAuditStatistics(GetAuditStatisticsRequest) returns (GetAuditStatisticsResponse) {
+    option (google.api.http) = {
+      get: "/v1/audit/statistics"
+    };
+    option (cache) = {
+      ttl_seconds: 60
+      key_pattern: "audit:stats:{start_time}:{end_time}"
+    };
+  }
+
+  // 清理过期审计日志
+  // 清理超过保留期限的审计日志
+  // 权限要求：AUDIT_CLEANUP 或 ADMIN
+  // 可能的错误码：PERMISSION_DENIED
+  rpc CleanupAuditLogs(CleanupAuditLogsRequest) returns (CleanupAuditLogsResponse) {
+    option (google.api.http) = {
+      post: "/v1/audit/logs/cleanup"
+      body: "*"
+    };
+    option (rate_limit) = {
+      requests_per_second: 1
+      burst: 2
+    };
+  }
+
+  // 验证审计日志完整性
+  // 验证审计日志的数字签名和完整性
+  // 权限要求：AUDIT_VERIFY 或 ADMIN
+  // 可能的错误码：PERMISSION_DENIED, AUDIT_LOG_NOT_FOUND
+  rpc VerifyAuditLogs(VerifyAuditLogsRequest) returns (VerifyAuditLogsResponse) {
+    option (google.api.http) = {
+      post: "/v1/audit/logs/verify"
+      body: "*"
+    };
+    option (rate_limit) = {
+      requests_per_second: 50
+      burst: 100
+    };
+  }
+}
+
+// 审计日志级别
+enum AuditLevel {
+  AUDIT_LEVEL_UNSPECIFIED = 0;
+  AUDIT_LEVEL_INFO = 1;        // 信息级别
+  AUDIT_LEVEL_WARNING = 2;     // 警告级别
+  AUDIT_LEVEL_ERROR = 3;       // 错误级别
+  AUDIT_LEVEL_CRITICAL = 4;    // 严重级别
+}
+
+// 审计事件类型
+enum AuditEventType {
+  AUDIT_EVENT_TYPE_UNSPECIFIED = 0;
+  // 用户相关事件
+  AUDIT_EVENT_TYPE_USER_LOGIN = 1;           // 用户登录
+  AUDIT_EVENT_TYPE_USER_LOGOUT = 2;          // 用户登出
+  AUDIT_EVENT_TYPE_USER_CREATE = 3;          // 创建用户
+  AUDIT_EVENT_TYPE_USER_UPDATE = 4;          // 更新用户
+  AUDIT_EVENT_TYPE_USER_DELETE = 5;          // 删除用户
+  AUDIT_EVENT_TYPE_USER_LOCK = 6;            // 锁定用户
+  AUDIT_EVENT_TYPE_USER_UNLOCK = 7;          // 解锁用户
+  AUDIT_EVENT_TYPE_PASSWORD_CHANGE = 8;      // 密码修改
+  AUDIT_EVENT_TYPE_PASSWORD_RESET = 9;       // 密码重置
+  
+  // 权限相关事件
+  AUDIT_EVENT_TYPE_ROLE_CREATE = 10;         // 创建角色
+  AUDIT_EVENT_TYPE_ROLE_UPDATE = 11;         // 更新角色
+  AUDIT_EVENT_TYPE_ROLE_DELETE = 12;         // 删除角色
+  AUDIT_EVENT_TYPE_PERMISSION_GRANT = 13;    // 授予权限
+  AUDIT_EVENT_TYPE_PERMISSION_REVOKE = 14;   // 撤销权限
+  
+  // 组织相关事件
+  AUDIT_EVENT_TYPE_ORG_CREATE = 15;          // 创建组织
+  AUDIT_EVENT_TYPE_ORG_UPDATE = 16;          // 更新组织
+  AUDIT_EVENT_TYPE_ORG_DELETE = 17;          // 删除组织
+  AUDIT_EVENT_TYPE_ORG_MEMBER_ADD = 18;      // 添加组织成员
+  AUDIT_EVENT_TYPE_ORG_MEMBER_REMOVE = 19;   // 移除组织成员
+  
+  // 租户相关事件
+  AUDIT_EVENT_TYPE_TENANT_CREATE = 20;       // 创建租户
+  AUDIT_EVENT_TYPE_TENANT_UPDATE = 21;       // 更新租户
+  AUDIT_EVENT_TYPE_TENANT_DELETE = 22;       // 删除租户
+  AUDIT_EVENT_TYPE_TENANT_ENABLE = 23;       // 启用租户
+  AUDIT_EVENT_TYPE_TENANT_DISABLE = 24;      // 禁用租户
+  
+  // 系统相关事件
+  AUDIT_EVENT_TYPE_SYSTEM_CONFIG = 25;       // 系统配置变更
+  AUDIT_EVENT_TYPE_SYSTEM_BACKUP = 26;       // 系统备份
+  AUDIT_EVENT_TYPE_SYSTEM_RESTORE = 27;      // 系统恢复
+  AUDIT_EVENT_TYPE_SYSTEM_MAINTENANCE = 28;  // 系统维护
+  
+  // 安全相关事件
+  AUDIT_EVENT_TYPE_SECURITY_VIOLATION = 29;  // 安全违规
+  AUDIT_EVENT_TYPE_ACCESS_DENIED = 30;       // 访问拒绝
+  AUDIT_EVENT_TYPE_SUSPICIOUS_ACTIVITY = 31; // 可疑活动
+  AUDIT_EVENT_TYPE_DATA_BREACH = 32;         // 数据泄露
+}
+
+// 审计结果状态
+enum AuditResult {
+  AUDIT_RESULT_UNSPECIFIED = 0;
+  AUDIT_RESULT_SUCCESS = 1;     // 成功
+  AUDIT_RESULT_FAILURE = 2;     // 失败
+  AUDIT_RESULT_PARTIAL = 3;     // 部分成功
+  AUDIT_RESULT_CANCELLED = 4;   // 取消
+}
+
+// 审计日志
+message AuditLog {
+  // 日志ID
+  string log_id = 1 [(validate.rules).string.min_len = 1];
+  
+  // 租户ID
+  string tenant_id = 2;
+  
+  // 组织ID
+  string organization_id = 3;
+  
+  // 用户ID
+  string user_id = 4;
+  
+  // 用户名
+  string username = 5;
+  
+  // 会话ID
+  string session_id = 6;
+  
+  // 事件类型
+  AuditEventType event_type = 7 [(validate.rules).enum.defined_only = true];
+  
+  // 审计级别
+  AuditLevel level = 8 [(validate.rules).enum.defined_only = true];
+  
+  // 操作结果
+  AuditResult result = 9 [(validate.rules).enum.defined_only = true];
+  
+  // 事件描述
+  string description = 10 [(validate.rules).string.max_len = 1000];
+  
+  // 资源类型
+  string resource_type = 11;
+  
+  // 资源ID
+  string resource_id = 12;
+  
+  // 资源名称
+  string resource_name = 13;
+  
+  // 操作前数据
+  google.protobuf.Struct before_data = 14;
+  
+  // 操作后数据
+  google.protobuf.Struct after_data = 15;
+  
+  // 客户端IP
+  string client_ip = 16;
+  
+  // 用户代理
+  string user_agent = 17;
+  
+  // 请求ID
+  string request_id = 18;
+  
+  // 错误码
+  string error_code = 19;
+  
+  // 错误消息
+  string error_message = 20;
+  
+  // 扩展字段
+  google.protobuf.Struct metadata = 21;
+  
+  // 数字签名
+  string signature = 22;
+  
+  // 创建时间
+  google.protobuf.Timestamp created_at = 23;
+  
+  // 处理时间（毫秒）
+  int64 processing_time_ms = 24;
+}
+
+// 创建审计日志请求
+message CreateAuditLogRequest {
+  // 租户ID
+  string tenant_id = 1;
+  
+  // 组织ID
+  string organization_id = 2;
+  
+  // 用户ID
+  string user_id = 3;
+  
+  // 用户名
+  string username = 4;
+  
+  // 会话ID
+  string session_id = 5;
+  
+  // 事件类型
+  AuditEventType event_type = 6 [(validate.rules).enum.defined_only = true];
+  
+  // 审计级别
+  AuditLevel level = 7 [(validate.rules).enum.defined_only = true];
+  
+  // 操作结果
+  AuditResult result = 8 [(validate.rules).enum.defined_only = true];
+  
+  // 事件描述
+  string description = 9 [(validate.rules).string = {min_len: 1, max_len: 1000}];
+  
+  // 资源类型
+  string resource_type = 10;
+  
+  // 资源ID
+  string resource_id = 11;
+  
+  // 资源名称
+  string resource_name = 12;
+  
+  // 操作前数据
+  google.protobuf.Struct before_data = 13;
+  
+  // 操作后数据
+  google.protobuf.Struct after_data = 14;
+  
+  // 客户端IP
+  string client_ip = 15;
+  
+  // 用户代理
+  string user_agent = 16;
+  
+  // 请求ID
+  string request_id = 17;
+  
+  // 错误码
+  string error_code = 18;
+  
+  // 错误消息
+  string error_message = 19;
+  
+  // 扩展字段
+  google.protobuf.Struct metadata = 20;
+  
+  // 处理时间（毫秒）
+  int64 processing_time_ms = 21;
+}
+
+// 创建审计日志响应
+message CreateAuditLogResponse {
+  // 日志ID
+  string log_id = 1;
+  
+  // 创建时间
+  google.protobuf.Timestamp created_at = 2;
+  
+  // 数字签名
+  string signature = 3;
+}
+
+// 批量创建审计日志请求
+message BatchCreateAuditLogsRequest {
+  // 审计日志列表
+  repeated CreateAuditLogRequest logs = 1 [(validate.rules).repeated = {min_items: 1, max_items: 100}];
+}
+
+// 批量创建审计日志响应
+message BatchCreateAuditLogsResponse {
+  // 创建结果
+  repeated CreateAuditLogResponse results = 1;
+  
+  // 成功数量
+  int32 success_count = 2;
+  
+  // 失败数量
+  int32 failure_count = 3;
+  
+  // 失败详情
+  repeated string failure_reasons = 4;
+}
+
+// 查询审计日志请求
+message ListAuditLogsRequest {
+  // 租户ID
+  string tenant_id = 1;
+  
+  // 组织ID
+  string organization_id = 2;
+  
+  // 用户ID
+  string user_id = 3;
+  
+  // 用户名
+  string username = 4;
+  
+  // 事件类型列表
+  repeated AuditEventType event_types = 5;
+  
+  // 审计级别列表
+  repeated AuditLevel levels = 6;
+  
+  // 操作结果列表
+  repeated AuditResult results = 7;
+  
+  // 资源类型
+  string resource_type = 8;
+  
+  // 资源ID
+  string resource_id = 9;
+  
+  // 客户端IP
+  string client_ip = 10;
+  
+  // 开始时间
+  google.protobuf.Timestamp start_time = 11;
+  
+  // 结束时间
+  google.protobuf.Timestamp end_time = 12;
+  
+  // 关键词搜索
+  string keyword = 13;
+  
+  // 页码
+  int32 page = 14 [(validate.rules).int32 = {gte: 1}];
+  
+  // 页大小
+  int32 page_size = 15 [(validate.rules).int32 = {gte: 1, lte: 100}];
+  
+  // 排序字段
+  string sort_by = 16;
+  
+  // 排序方向
+  string sort_order = 17 [(validate.rules).string = {in: ["asc", "desc"]}];
+}
+
+// 查询审计日志响应
+message ListAuditLogsResponse {
+  // 审计日志列表
+  repeated AuditLog logs = 1;
+  
+  // 总数量
+  int64 total_count = 2;
+  
+  // 当前页码
+  int32 page = 3;
+  
+  // 页大小
+  int32 page_size = 4;
+  
+  // 总页数
+  int32 total_pages = 5;
+}
+
+// 获取审计日志请求
+message GetAuditLogRequest {
+  // 日志ID
+  string log_id = 1 [(validate.rules).string.min_len = 1];
+}
+
+// 导出审计日志请求
+message ExportAuditLogsRequest {
+  // 查询条件（复用ListAuditLogsRequest的字段）
+  string tenant_id = 1;
+  string organization_id = 2;
+  string user_id = 3;
+  repeated AuditEventType event_types = 4;
+  repeated AuditLevel levels = 5;
+  google.protobuf.Timestamp start_time = 6;
+  google.protobuf.Timestamp end_time = 7;
+  
+  // 导出格式
+  string format = 8 [(validate.rules).string = {in: ["csv", "json", "xlsx"]}];
+  
+  // 是否包含敏感数据
+  bool include_sensitive_data = 9;
+  
+  // 最大导出数量
+  int32 max_records = 10 [(validate.rules).int32 = {gte: 1, lte: 100000}];
+}
+
+// 导出审计日志响应
+message ExportAuditLogsResponse {
+  // 导出任务ID
+  string task_id = 1;
+  
+  // 下载URL（异步导出完成后可用）
+  string download_url = 2;
+  
+  // 导出状态
+  string status = 3;
+  
+  // 预计完成时间
+  google.protobuf.Timestamp estimated_completion_time = 4;
+}
+
+// 获取审计统计请求
+message GetAuditStatisticsRequest {
+  // 租户ID
+  string tenant_id = 1;
+  
+  // 组织ID
+  string organization_id = 2;
+  
+  // 开始时间
+  google.protobuf.Timestamp start_time = 3;
+  
+  // 结束时间
+  google.protobuf.Timestamp end_time = 4;
+  
+  // 统计维度
+  repeated string dimensions = 5;
+  
+  // 时间粒度
+  string time_granularity = 6 [(validate.rules).string = {in: ["hour", "day", "week", "month"]}];
+}
+
+// 审计统计数据
+message AuditStatistics {
+  // 总日志数量
+  int64 total_logs = 1;
+  
+  // 按事件类型统计
+  map<string, int64> event_type_counts = 2;
+  
+  // 按级别统计
+  map<string, int64> level_counts = 3;
+  
+  // 按结果统计
+  map<string, int64> result_counts = 4;
+  
+  // 按用户统计
+  map<string, int64> user_counts = 5;
+  
+  // 按时间统计
+  repeated TimeSeriesData time_series = 6;
+  
+  // 热门资源
+  repeated ResourceStatistics top_resources = 7;
+  
+  // 异常活动
+  repeated AnomalyData anomalies = 8;
+}
+
+// 时间序列数据
+message TimeSeriesData {
+  // 时间戳
+  google.protobuf.Timestamp timestamp = 1;
+  
+  // 数值
+  int64 value = 2;
+  
+  // 标签
+  map<string, string> labels = 3;
+}
+
+// 资源统计
+message ResourceStatistics {
+  // 资源类型
+  string resource_type = 1;
+  
+  // 资源ID
+  string resource_id = 2;
+  
+  // 资源名称
+  string resource_name = 3;
+  
+  // 访问次数
+  int64 access_count = 4;
+  
+  // 最后访问时间
+  google.protobuf.Timestamp last_access_time = 5;
+}
+
+// 异常数据
+message AnomalyData {
+  // 异常类型
+  string anomaly_type = 1;
+  
+  // 异常描述
+  string description = 2;
+  
+  // 严重程度
+  string severity = 3;
+  
+  // 发生时间
+  google.protobuf.Timestamp occurred_at = 4;
+  
+  // 相关用户
+  string user_id = 5;
+  
+  // 相关资源
+  string resource_id = 6;
+}
+
+// 获取审计统计响应
+message GetAuditStatisticsResponse {
+  // 统计数据
+  AuditStatistics statistics = 1;
+  
+  // 统计时间范围
+  google.protobuf.Timestamp start_time = 2;
+  google.protobuf.Timestamp end_time = 3;
+  
+  // 生成时间
+  google.protobuf.Timestamp generated_at = 4;
+}
+
+// 清理审计日志请求
+message CleanupAuditLogsRequest {
+  // 保留天数
+  int32 retention_days = 1 [(validate.rules).int32 = {gte: 1, lte: 3650}];
+  
+  // 是否干运行
+  bool dry_run = 2;
+  
+  // 批次大小
+  int32 batch_size = 3 [(validate.rules).int32 = {gte: 100, lte: 10000}];
+}
+
+// 清理审计日志响应
+message CleanupAuditLogsResponse {
+  // 清理任务ID
+  string task_id = 1;
+  
+  // 预计清理数量
+  int64 estimated_cleanup_count = 2;
+  
+  // 实际清理数量
+  int64 actual_cleanup_count = 3;
+  
+  // 清理状态
+  string status = 4;
+  
+  // 开始时间
+  google.protobuf.Timestamp start_time = 5;
+  
+  // 完成时间
+  google.protobuf.Timestamp completion_time = 6;
+}
+
+// 验证审计日志请求
+message VerifyAuditLogsRequest {
+  // 日志ID列表
+  repeated string log_ids = 1 [(validate.rules).repeated = {min_items: 1, max_items: 1000}];
+  
+  // 验证类型
+  string verification_type = 2 [(validate.rules).string = {in: ["signature", "integrity", "all"]}];
+}
+
+// 验证结果
+message VerificationResult {
+  // 日志ID
+  string log_id = 1;
+  
+  // 验证状态
+  bool is_valid = 2;
+  
+  // 错误信息
+  string error_message = 3;
+  
+  // 验证详情
+  google.protobuf.Struct details = 4;
+}
+
+// 验证审计日志响应
+message VerifyAuditLogsResponse {
+  // 验证结果列表
+  repeated VerificationResult results = 1;
+  
+  // 验证摘要
+  int32 total_count = 2;
+  int32 valid_count = 3;
+  int32 invalid_count = 4;
+  
+  // 验证时间
+  google.protobuf.Timestamp verified_at = 5;
+}
+
+// 自定义选项扩展
+extend google.protobuf.MethodOptions {
+  // 限流配置
+  RateLimitOptions rate_limit = 50001;
+  
+  // 缓存配置
+  CacheOptions cache = 50002;
+}
+
+// 限流选项
+message RateLimitOptions {
+  // 每秒请求数
+  int32 requests_per_second = 1;
+  
+  // 突发请求数
+  int32 burst = 2;
+}
+
+// 缓存选项
+message CacheOptions {
+  // 是否可缓存
+  bool cacheable = 1;
+  
+  // TTL（秒）
+  int32 ttl_seconds = 2;
+  
+  // 缓存键模式
+  string key_pattern = 3;
+  
+  // 缓存键列表
+  repeated string cache_keys = 4;
+}

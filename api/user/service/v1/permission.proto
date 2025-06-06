@@ -104,6 +104,10 @@ service PermissionService {
   // 权限要求：PERMISSION_READ 或 ADMIN
   // 可能的错误码：PERMISSION_DENIED, INVALID_ARGUMENT
   rpc BatchGetPermissions (BatchGetPermissionsRequest) returns (BatchGetPermissionsResponse) {
+    option (google.api.http) = {
+      post: "/v1/permissions/by-ids"
+      body: "*"
+    };
     option (cache) = {
       cacheable: true
       ttl_seconds: 60
@@ -115,25 +119,55 @@ service PermissionService {
   // 批量创建多个权限并返回创建结果
   // 权限要求：PERMISSION_CREATE 或 ADMIN
   // 可能的错误码：PERMISSION_ALREADY_EXISTS, PERMISSION_DENIED, INVALID_ARGUMENT
-  rpc BatchCreatePermissions (BatchCreatePermissionsRequest) returns (BatchCreatePermissionsResponse) {}
+  rpc BatchCreatePermissions (BatchCreatePermissionsRequest) returns (BatchCreatePermissionsResponse) {
+    option (google.api.http) = {
+      post: "/v1/permissions/batch"
+      body: "*"
+    };
+    option (rate_limit) = {
+      requests_per_second: 20
+      burst: 50
+    };
+  }
 
   // 批量更新权限
   // 批量更新多个权限信息
   // 权限要求：PERMISSION_UPDATE 或 ADMIN
   // 可能的错误码：PERMISSION_NOT_FOUND, PERMISSION_DENIED, INVALID_ARGUMENT
-  rpc BatchUpdatePermissions (BatchUpdatePermissionsRequest) returns (BatchUpdatePermissionsResponse) {}
+  rpc BatchUpdatePermissions (BatchUpdatePermissionsRequest) returns (BatchUpdatePermissionsResponse) {
+    option (google.api.http) = {
+      put: "/v1/permissions/batch"
+      body: "*"
+    };
+    option (rate_limit) = {
+      requests_per_second: 20
+      burst: 50
+    };
+  }
 
   // 批量删除权限
   // 批量删除多个权限（逻辑删除）
   // 权限要求：PERMISSION_DELETE 或 ADMIN
   // 可能的错误码：PERMISSION_NOT_FOUND, PERMISSION_DENIED
-  rpc BatchDeletePermissions (BatchDeletePermissionsRequest) returns (BatchDeletePermissionsResponse) {}
+  rpc BatchDeletePermissions (BatchDeletePermissionsRequest) returns (BatchDeletePermissionsResponse) {
+    option (google.api.http) = {
+      delete: "/v1/permissions/batch"
+      body: "*"
+    };
+    option (rate_limit) = {
+      requests_per_second: 20
+      burst: 50
+    };
+  }
 
   // 获取权限树
   // 获取权限的层级结构树
   // 权限要求：PERMISSION_READ 或 ADMIN
   // 可能的错误码：PERMISSION_DENIED
   rpc GetPermissionTree (GetPermissionTreeRequest) returns (GetPermissionTreeResponse) {
+    option (google.api.http) = {
+      get: "/v1/permissions/tree"
+    };
     option (cache) = {
       cacheable: true
       ttl_seconds: 300
@@ -146,10 +180,18 @@ service PermissionService {
   // 权限要求：PERMISSION_READ 或 ADMIN 或 SELF
   // 可能的错误码：USER_NOT_FOUND, PERMISSION_NOT_FOUND, PERMISSION_DENIED
   rpc CheckUserPermission (CheckUserPermissionRequest) returns (CheckUserPermissionResponse) {
+    option (google.api.http) = {
+      post: "/v1/permissions/check"
+      body: "*"
+    };
     option (cache) = {
       cacheable: true
       ttl_seconds: 60
       cache_keys: ["user_id", "permission_code", "resource_id"]
+    };
+    option (rate_limit) = {
+      requests_per_second: 500
+      burst: 1000
     };
   }
 
@@ -158,10 +200,18 @@ service PermissionService {
   // 权限要求：PERMISSION_READ 或 ADMIN 或 SELF
   // 可能的错误码：USER_NOT_FOUND, PERMISSION_DENIED
   rpc BatchCheckUserPermissions (BatchCheckUserPermissionsRequest) returns (BatchCheckUserPermissionsResponse) {
+    option (google.api.http) = {
+      post: "/v1/permissions/check/batch"
+      body: "*"
+    };
     option (cache) = {
       cacheable: true
       ttl_seconds: 60
       cache_keys: ["user_id", "permission_codes", "resource_id"]
+    };
+    option (rate_limit) = {
+      requests_per_second: 200
+      burst: 500
     };
   }
 
