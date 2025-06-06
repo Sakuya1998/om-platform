@@ -1,289 +1,532 @@
 syntax = "proto3";
 
-package api.user.service.v1;
+package user.service.v1;
 
-import "gnostic/openapi/v3/annotations.proto";
-import "google/protobuf/empty.proto";
+import "google/api/annotations.proto";
 import "google/protobuf/timestamp.proto";
-import "google/protobuf/field_mask.proto";
+import "google/protobuf/descriptor.proto";
+import "validate/validate.proto";
+import "api/user/service/v1/common.proto";
+import "api/user/service/v1/error_codes.proto";
 
-import "pkg/utils/pagination/v1/pagination.proto";
-import "api/user/service/v1/permission.proto";
-
-option go_package = "om-platform/api/user/service/v1;v1";
-option java_multiple_files = true;
-option java_package = "api.user.service.v1";
-
-// 租户状态
-enum TenantStatus {
-  TENANT_STATUS_UNSPECIFIED = 0 [
-    (gnostic.openapi.v3.property) = {description: "未指定"}
-  ]; // 未指定
-  TENANT_STATUS_ACTIVE = 1 [
-    (gnostic.openapi.v3.property) = {description: "活跃"}
-  ]; // 活跃
-  TENANT_STATUS_INACTIVE = 2 [
-    (gnostic.openapi.v3.property) = {description: "不活跃"}
-  ]; // 不活跃
-  TENANT_STATUS_SUSPENDED = 3 [
-    (gnostic.openapi.v3.property) = {description: "已暂停"}
-  ]; // 已暂停
-  TENANT_STATUS_DELETED = 4 [
-    (gnostic.openapi.v3.property) = {description: "已删除"}
-  ]; // 已删除
-}
+option go_package = "om-platform/api/user/service/v1;userv1";
 
 // 租户服务
-// 提供租户管理、配额控制和权限分配等功能
-// 错误处理：所有接口在发生错误时将返回ErrorResponse结构，包含统一的错误码、错误消息和详细信息
 service TenantService {
-  // 查询租户列表
-  rpc ListTenant (pkg.utils.pagination.v1.PagingRequest) returns (ListTenantResponse) {}
-
-  // 查询租户详情
-  rpc GetTenant (GetTenantRequest) returns (Tenant) {}
-
   // 创建租户
-  rpc CreateTenant (CreateTenantRequest) returns (google.protobuf.Empty) {}
+  rpc CreateTenant(CreateTenantRequest) returns (CreateTenantResponse) {
+    option (google.api.http) = {
+      post: "/v1/tenants"
+      body: "*"
+    };
+    option (rate_limit) = {
+      requests_per_second: 10
+      burst: 20
+    };
+  }
 
-  // 更新租户
-  rpc UpdateTenant (UpdateTenantRequest) returns (google.protobuf.Empty) {}
+  // 获取租户详情
+  rpc GetTenant(GetTenantRequest) returns (GetTenantResponse) {
+    option (google.api.http) = {
+      get: "/v1/tenants/{tenant_id}"
+    };
+    option (cache) = {
+      ttl_seconds: 300
+      key_pattern: "tenant:{tenant_id}"
+    };
+  }
+
+  // 更新租户信息
+  rpc UpdateTenant(UpdateTenantRequest) returns (UpdateTenantResponse) {
+    option (google.api.http) = {
+      put: "/v1/tenants/{tenant_id}"
+      body: "*"
+    };
+    option (rate_limit) = {
+      requests_per_second: 20
+      burst: 40
+    };
+  }
 
   // 删除租户
-  rpc DeleteTenant (DeleteTenantRequest) returns (google.protobuf.Empty) {}
-  
-  // 查询子租户列表
-  rpc ListSubTenant (ListSubTenantRequest) returns (ListTenantResponse) {}
-  
-  // 创建子租户
-  rpc CreateSubTenant (CreateSubTenantRequest) returns (google.protobuf.Empty) {}
-  
-  // 查询租户资源配额
-  rpc GetTenantQuota (GetTenantQuotaRequest) returns (TenantQuota) {}
-  
-  // 更新租户资源配额
-  rpc UpdateTenantQuota (UpdateTenantQuotaRequest) returns (google.protobuf.Empty) {}
-  
-  // 获取租户权限列表
-  rpc GetTenantPermissions (GetTenantPermissionsRequest) returns (GetTenantPermissionsResponse) {}
-  
-  // 批量分配租户权限
-  rpc BatchAssignTenantPermission (BatchAssignTenantPermissionRequest) returns (google.protobuf.Empty) {}
-  
-  // 批量撤销租户权限
-  rpc BatchRevokeTenantPermission (BatchRevokeTenantPermissionRequest) returns (google.protobuf.Empty) {}
+  rpc DeleteTenant(DeleteTenantRequest) returns (DeleteTenantResponse) {
+    option (google.api.http) = {
+      delete: "/v1/tenants/{tenant_id}"
+    };
+    option (rate_limit) = {
+      requests_per_second: 5
+      burst: 10
+    };
+  }
+
+  // 获取租户列表
+  rpc ListTenants(ListTenantsRequest) returns (ListTenantsResponse) {
+    option (google.api.http) = {
+      get: "/v1/tenants"
+    };
+    option (cache) = {
+      ttl_seconds: 60
+      key_pattern: "tenants:list:{page}:{size}"
+    };
+  }
+
+  // 批量创建租户
+  rpc BatchCreateTenants(BatchCreateTenantsRequest) returns (BatchCreateTenantsResponse) {
+    option (google.api.http) = {
+      post: "/v1/tenants/batch"
+      body: "*"
+    };
+    option (rate_limit) = {
+      requests_per_second: 2
+      burst: 5
+    };
+  }
+
+  // 批量删除租户
+  rpc BatchDeleteTenants(BatchDeleteTenantsRequest) returns (BatchDeleteTenantsResponse) {
+    option (google.api.http) = {
+      delete: "/v1/tenants/batch"
+      body: "*"
+    };
+    option (rate_limit) = {
+      requests_per_second: 2
+      burst: 5
+    };
+  }
+
+  // 启用租户
+  rpc EnableTenant(EnableTenantRequest) returns (EnableTenantResponse) {
+    option (google.api.http) = {
+      post: "/v1/tenants/{tenant_id}/enable"
+      body: "*"
+    };
+    option (rate_limit) = {
+      requests_per_second: 10
+      burst: 20
+    };
+  }
+
+  // 禁用租户
+  rpc DisableTenant(DisableTenantRequest) returns (DisableTenantResponse) {
+    option (google.api.http) = {
+      post: "/v1/tenants/{tenant_id}/disable"
+      body: "*"
+    };
+    option (rate_limit) = {
+      requests_per_second: 10
+      burst: 20
+    };
+  }
+
+  // 获取租户配置
+  rpc GetTenantConfig(GetTenantConfigRequest) returns (GetTenantConfigResponse) {
+    option (google.api.http) = {
+      get: "/v1/tenants/{tenant_id}/config"
+    };
+    option (cache) = {
+      ttl_seconds: 600
+      key_pattern: "tenant:{tenant_id}:config"
+    };
+  }
+
+  // 更新租户配置
+  rpc UpdateTenantConfig(UpdateTenantConfigRequest) returns (UpdateTenantConfigResponse) {
+    option (google.api.http) = {
+      put: "/v1/tenants/{tenant_id}/config"
+      body: "*"
+    };
+    option (rate_limit) = {
+      requests_per_second: 10
+      burst: 20
+    };
+  }
+
+  // 获取租户统计信息
+  rpc GetTenantStats(GetTenantStatsRequest) returns (GetTenantStatsResponse) {
+    option (google.api.http) = {
+      get: "/v1/tenants/{tenant_id}/stats"
+    };
+    option (cache) = {
+      ttl_seconds: 300
+      key_pattern: "tenant:{tenant_id}:stats"
+    };
+  }
+
+  // 获取租户审计日志
+  rpc GetTenantAuditLogs(GetTenantAuditLogsRequest) returns (GetTenantAuditLogsResponse) {
+    option (google.api.http) = {
+      get: "/v1/tenants/{tenant_id}/audit-logs"
+    };
+  }
+
+  // 导出租户数据
+  rpc ExportTenantData(ExportTenantDataRequest) returns (ExportTenantDataResponse) {
+    option (google.api.http) = {
+      post: "/v1/tenants/{tenant_id}/export"
+      body: "*"
+    };
+    option (rate_limit) = {
+      requests_per_second: 1
+      burst: 2
+    };
+  }
+
+  // 导入租户数据
+  rpc ImportTenantData(ImportTenantDataRequest) returns (ImportTenantDataResponse) {
+    option (google.api.http) = {
+      post: "/v1/tenants/{tenant_id}/import"
+      body: "*"
+    };
+    option (rate_limit) = {
+      requests_per_second: 1
+      burst: 2
+    };
+  }
 }
 
-// 租户
+// 租户状态枚举
+enum TenantStatus {
+  TENANT_STATUS_UNSPECIFIED = 0;
+  TENANT_STATUS_ACTIVE = 1;      // 活跃
+  TENANT_STATUS_INACTIVE = 2;    // 非活跃
+  TENANT_STATUS_SUSPENDED = 3;   // 暂停
+  TENANT_STATUS_DELETED = 4;     // 已删除
+}
+
+// 租户类型枚举
+enum TenantType {
+  TENANT_TYPE_UNSPECIFIED = 0;
+  TENANT_TYPE_ENTERPRISE = 1;    // 企业版
+  TENANT_TYPE_STANDARD = 2;      // 标准版
+  TENANT_TYPE_BASIC = 3;         // 基础版
+  TENANT_TYPE_TRIAL = 4;         // 试用版
+}
+
+// 租户信息
 message Tenant {
-  optional uint32 id = 1 [
-    json_name = "id",
-    (gnostic.openapi.v3.property) = {description: "租户ID"}
-  ];  // 租户ID
-
-  optional string name = 2 [
-    json_name = "name",
-    (gnostic.openapi.v3.property) = {description: "租户名称"}
-  ];  // 租户名称
-
-  optional string code = 3 [
-    json_name = "code",
-    (gnostic.openapi.v3.property) = {description: "租户编码"}
-  ];  // 租户编码
-
-  optional int32 member_count = 4 [
-    json_name = "memberCount",
-    (gnostic.openapi.v3.property) = {description: "成员数量"}
-  ];  // 成员数量
-  
-  optional uint32 parent_id = 5 [
-    json_name = "parentId",
-    (gnostic.openapi.v3.property) = {description: "父租户ID"}
-  ];  // 父租户ID
-  
-  optional int32 level = 6 [
-    json_name = "level",
-    (gnostic.openapi.v3.property) = {description: "租户层级"}
-  ];  // 租户层级
-  
-  optional string path = 7 [
-    json_name = "path",
-    (gnostic.openapi.v3.property) = {description: "租户路径，格式：1,2,3"}
-  ];  // 租户路径，格式：1,2,3
-
-  optional TenantStatus status = 8 [
-    json_name = "status",
-    (gnostic.openapi.v3.property) = {description: "租户状态"}
-  ]; // 租户状态
-
-  optional string remark = 9 [
-    json_name = "remark",
-    (gnostic.openapi.v3.property) = {
-      description: "备注"
-    }
-  ]; // 备注
-
-  optional uint32 create_by = 10 [json_name = "createBy", (gnostic.openapi.v3.property) = {description: "创建者ID"}]; // 创建者ID
-  optional uint32 update_by = 11 [json_name = "updateBy", (gnostic.openapi.v3.property) = {description: "更新者ID"}]; // 更新者ID
-
-  optional google.protobuf.Timestamp subscription_at = 12 [
-    json_name = "subscriptionAt",
-    (gnostic.openapi.v3.property) = {
-      description: "订阅时间"
-    }
-  ];
-  optional google.protobuf.Timestamp unsubscribe_at = 13 [
-    json_name = "unsubscribeAt",
-    (gnostic.openapi.v3.property) = {
-      description: "退订时间"
-    }
-  ];
-
-  optional google.protobuf.Timestamp create_time = 200 [json_name = "createTime", (gnostic.openapi.v3.property) = {description: "创建时间"}];// 创建时间
-  optional google.protobuf.Timestamp update_time = 201 [json_name = "updateTime", (gnostic.openapi.v3.property) = {description: "更新时间"}];// 更新时间
-  optional google.protobuf.Timestamp delete_time = 202 [json_name = "deleteTime", (gnostic.openapi.v3.property) = {description: "删除时间"}];// 删除时间
+  string tenant_id = 1 [(validate.rules).string.min_len = 1];
+  string name = 2 [(validate.rules).string.min_len = 1];
+  string display_name = 3;
+  string description = 4;
+  TenantStatus status = 5;
+  TenantType type = 6;
+  string domain = 7;
+  string contact_email = 8 [(validate.rules).string.email = true];
+  string contact_phone = 9;
+  string address = 10;
+  int32 max_users = 11 [(validate.rules).int32.gte = 0];
+  int32 current_users = 12 [(validate.rules).int32.gte = 0];
+  google.protobuf.Timestamp created_at = 13;
+  google.protobuf.Timestamp updated_at = 14;
+  google.protobuf.Timestamp expires_at = 15;
+  AuditInfo audit_info = 16;
+  map<string, string> metadata = 17;
+  repeated string features = 18;
+  TenantConfig config = 19;
 }
 
-// 租户列表 - 答复
-message ListTenantResponse {
-  repeated Tenant items = 1;
-  uint32 total = 2;
+// 租户配置
+message TenantConfig {
+  bool allow_user_registration = 1;
+  bool require_email_verification = 2;
+  bool enable_sso = 3;
+  bool enable_mfa = 4;
+  int32 session_timeout_minutes = 5 [(validate.rules).int32.gte = 0];
+  int32 password_expiry_days = 6 [(validate.rules).int32.gte = 0];
+  int32 max_login_attempts = 7 [(validate.rules).int32.gte = 0];
+  string timezone = 8;
+  string locale = 9;
+  string theme = 10;
+  map<string, string> custom_settings = 11;
 }
 
-// 租户数据 - 请求
-message GetTenantRequest {
-  uint32 id = 1;
+// 租户统计信息
+message TenantStats {
+  int32 total_users = 1;
+  int32 active_users = 2;
+  int32 total_organizations = 3;
+  int32 total_departments = 4;
+  int32 total_roles = 5;
+  int32 total_permissions = 6;
+  int64 storage_used_bytes = 7;
+  int64 storage_limit_bytes = 8;
+  google.protobuf.Timestamp last_activity_at = 9;
+  map<string, int32> feature_usage = 10;
 }
 
-// 创建租户 - 请求
+// 创建租户请求
 message CreateTenantRequest {
-  Tenant data = 1;
-
-  optional uint32 operator_id = 2 [
-    (gnostic.openapi.v3.property) = {description: "操作用户ID", read_only: true},
-    json_name = "operatorId"
-  ]; // 操作用户ID
+  string name = 1 [(validate.rules).string.min_len = 1];
+  string display_name = 2;
+  string description = 3;
+  TenantType type = 4;
+  string domain = 5;
+  string contact_email = 6 [(validate.rules).string.email = true];
+  string contact_phone = 7;
+  string address = 8;
+  int32 max_users = 9 [(validate.rules).int32.gte = 0];
+  google.protobuf.Timestamp expires_at = 10;
+  map<string, string> metadata = 11;
+  repeated string features = 12;
+  TenantConfig config = 13;
 }
 
-// 更新租户 -请求
+// 创建租户响应
+message CreateTenantResponse {
+  oneof result {
+    Tenant tenant = 1;
+    ErrorResponse error = 2;
+  }
+}
+
+// 获取租户请求
+message GetTenantRequest {
+  string tenant_id = 1 [(validate.rules).string.min_len = 1];
+  repeated string fields = 2; // 字段筛选
+}
+
+// 获取租户响应
+message GetTenantResponse {
+  oneof result {
+    Tenant tenant = 1;
+    ErrorResponse error = 2;
+  }
+}
+
+// 更新租户请求
 message UpdateTenantRequest {
-  optional uint32 operator_id = 1 [
-    (gnostic.openapi.v3.property) = {description: "操作用户ID", read_only: true},
-    json_name = "operatorId"
-  ]; // 操作用户ID
-
-  Tenant data = 2;
-
-  google.protobuf.FieldMask update_mask = 3 [
-    (gnostic.openapi.v3.property) = {
-      description: "要更新的字段列表",
-      example: {yaml : "id,realName,userName"}
-    },
-    json_name = "updateMask"
-  ]; // 要更新的字段列表
-
-  optional bool allow_missing = 4 [
-    (gnostic.openapi.v3.property) = {description: "如果设置为true的时候，资源不存在则会新增(插入)，并且在这种情况下`updateMask`字段将会被忽略。"},
-    json_name = "allowMissing"
-  ]; // 如果设置为true的时候，资源不存在则会新增(插入)，并且在这种情况下`updateMask`字段将会被忽略。
+  string tenant_id = 1 [(validate.rules).string.min_len = 1];
+  string display_name = 2;
+  string description = 3;
+  string contact_email = 4;
+  string contact_phone = 5;
+  string address = 6;
+  int32 max_users = 7;
+  google.protobuf.Timestamp expires_at = 8;
+  map<string, string> metadata = 9;
+  repeated string features = 10;
+  repeated string update_mask = 11; // 更新字段掩码
 }
 
-// 删除租户 - 请求
+// 更新租户响应
+message UpdateTenantResponse {
+  oneof result {
+    Tenant tenant = 1;
+    ErrorResponse error = 2;
+  }
+}
+
+// 删除租户请求
 message DeleteTenantRequest {
-  uint32 id = 1;
-
-  optional uint32 operator_id = 2 [
-    (gnostic.openapi.v3.property) = {description: "操作用户ID", read_only: true},
-    json_name = "operatorId"
-  ]; // 操作用户ID
+  string tenant_id = 1 [(validate.rules).string.min_len = 1];
+  bool force = 2; // 强制删除
 }
 
-// 查询子租户列表 - 请求
-message ListSubTenantRequest {
-  uint32 parent_id = 1 [json_name = "parentId"];
-  pkg.utils.pagination.v1.PagingRequest paging = 2;
+// 删除租户响应
+message DeleteTenantResponse {
+  oneof result {
+    bool success = 1;
+    ErrorResponse error = 2;
+  }
 }
 
-// 创建子租户 - 请求
-message CreateSubTenantRequest {
-  uint32 parent_id = 1 [json_name = "parentId"];
-  Tenant data = 2;
-  
-  optional uint32 operator_id = 3 [
-    (gnostic.openapi.v3.property) = {description: "操作用户ID", read_only: true},
-    json_name = "operatorId"
-  ]; // 操作用户ID
+// 获取租户列表请求
+message ListTenantsRequest {
+  PagingRequest paging = 1;
+  repeated SortOption sort_options = 2;
+  TenantStatus status = 3;
+  TenantType type = 4;
+  string search_keyword = 5;
+  repeated string fields = 6; // 字段筛选
+  map<string, string> filters = 7;
 }
 
-// 租户资源配额
-message TenantQuota {
-  optional uint32 id = 1 [json_name = "id", (gnostic.openapi.v3.property) = {description: "配额ID"}];
-  optional uint32 tenant_id = 2 [json_name = "tenantId", (gnostic.openapi.v3.property) = {description: "租户ID"}];
-  
-  optional int32 max_users = 3 [json_name = "maxUsers", (gnostic.openapi.v3.property) = {description: "最大用户数"}];
-  optional int32 max_groups = 4 [json_name = "maxGroups", (gnostic.openapi.v3.property) = {description: "最大用户组数"}];
-  optional int32 max_projects = 5 [json_name = "maxProjects", (gnostic.openapi.v3.property) = {description: "最大项目数"}];
-  optional int32 max_storage_gb = 6 [json_name = "maxStorageGb", (gnostic.openapi.v3.property) = {description: "最大存储空间(GB)"}];
-  optional int32 max_sub_tenants = 7 [json_name = "maxSubTenants", (gnostic.openapi.v3.property) = {description: "最大子租户数"}];
-  
-  optional uint32 create_by = 8 [json_name = "createBy", (gnostic.openapi.v3.property) = {description: "创建者ID"}];
-  optional uint32 update_by = 9 [json_name = "updateBy", (gnostic.openapi.v3.property) = {description: "更新者ID"}];
-  
-  optional google.protobuf.Timestamp create_time = 200 [json_name = "createTime", (gnostic.openapi.v3.property) = {description: "创建时间"}];
-  optional google.protobuf.Timestamp update_time = 201 [json_name = "updateTime", (gnostic.openapi.v3.property) = {description: "更新时间"}];
+// 获取租户列表响应
+message ListTenantsResponse {
+  oneof result {
+    TenantsData data = 1;
+    ErrorResponse error = 2;
+  }
 }
 
-// 查询租户资源配额 - 请求
-message GetTenantQuotaRequest {
-  uint32 tenant_id = 1 [json_name = "tenantId"];
+message TenantsData {
+  repeated Tenant tenants = 1;
+  PaginatedResponse pagination = 2;
 }
 
-// 更新租户资源配额 - 请求
-message UpdateTenantQuotaRequest {
-  TenantQuota data = 1;
-  
-  google.protobuf.FieldMask update_mask = 2 [
-    (gnostic.openapi.v3.property) = {
-      description: "要更新的字段列表",
-      example: {yaml : "maxUsers,maxGroups,maxProjects"}
-    },
-    json_name = "updateMask"
-  ];
-  
-  optional uint32 operator_id = 3 [
-    (gnostic.openapi.v3.property) = {description: "操作用户ID", read_only: true},
-    json_name = "operatorId"
-  ]; // 操作用户ID
+// 批量创建租户请求
+message BatchCreateTenantsRequest {
+  repeated CreateTenantRequest tenants = 1 [(validate.rules).repeated.min_items = 1, (validate.rules).repeated.max_items = 100];
 }
 
-// 获取租户权限列表 - 请求
-message GetTenantPermissionsRequest {
-  uint32 tenant_id = 1 [json_name = "tenantId"];
+// 批量创建租户响应
+message BatchCreateTenantsResponse {
+  oneof result {
+    BatchOperationResult<Tenant> results = 1;
+    ErrorResponse error = 2;
+  }
 }
 
-// 获取租户权限列表 - 响应
-message GetTenantPermissionsResponse {
-  repeated Permission permissions = 1;
+// 批量删除租户请求
+message BatchDeleteTenantsRequest {
+  repeated string tenant_ids = 1 [(validate.rules).repeated.min_items = 1, (validate.rules).repeated.max_items = 100];
+  bool force = 2; // 强制删除
 }
 
-// 批量分配租户权限 - 请求
-message BatchAssignTenantPermissionRequest {
-  optional uint32 operator_id = 1 [
-    (gnostic.openapi.v3.property) = {description: "操作用户ID", read_only: true},
-    json_name = "operatorId"
-  ]; // 操作用户ID
-  
-  uint32 tenant_id = 2 [json_name = "tenantId"]; // 租户ID
-  repeated uint32 permission_ids = 3 [json_name = "permissionIds"]; // 权限ID列表
+// 批量删除租户响应
+message BatchDeleteTenantsResponse {
+  oneof result {
+    BatchOperationResult<bool> results = 1;
+    ErrorResponse error = 2;
+  }
 }
 
-// 批量撤销租户权限 - 请求
-message BatchRevokeTenantPermissionRequest {
-  optional uint32 operator_id = 1 [
-    (gnostic.openapi.v3.property) = {description: "操作用户ID", read_only: true},
-    json_name = "operatorId"
-  ]; // 操作用户ID
-  
-  uint32 tenant_id = 2 [json_name = "tenantId"]; // 租户ID
-  repeated uint32 permission_ids = 3 [json_name = "permissionIds"]; // 权限ID列表
+// 启用租户请求
+message EnableTenantRequest {
+  string tenant_id = 1 [(validate.rules).string.min_len = 1];
+  string reason = 2;
+}
+
+// 启用租户响应
+message EnableTenantResponse {
+  oneof result {
+    bool success = 1;
+    ErrorResponse error = 2;
+  }
+}
+
+// 禁用租户请求
+message DisableTenantRequest {
+  string tenant_id = 1 [(validate.rules).string.min_len = 1];
+  string reason = 2 [(validate.rules).string.min_len = 1];
+}
+
+// 禁用租户响应
+message DisableTenantResponse {
+  oneof result {
+    bool success = 1;
+    ErrorResponse error = 2;
+  }
+}
+
+// 获取租户配置请求
+message GetTenantConfigRequest {
+  string tenant_id = 1 [(validate.rules).string.min_len = 1];
+}
+
+// 获取租户配置响应
+message GetTenantConfigResponse {
+  oneof result {
+    TenantConfig config = 1;
+    ErrorResponse error = 2;
+  }
+}
+
+// 更新租户配置请求
+message UpdateTenantConfigRequest {
+  string tenant_id = 1 [(validate.rules).string.min_len = 1];
+  TenantConfig config = 2;
+  repeated string update_mask = 3; // 更新字段掩码
+}
+
+// 更新租户配置响应
+message UpdateTenantConfigResponse {
+  oneof result {
+    TenantConfig config = 1;
+    ErrorResponse error = 2;
+  }
+}
+
+// 获取租户统计信息请求
+message GetTenantStatsRequest {
+  string tenant_id = 1 [(validate.rules).string.min_len = 1];
+}
+
+// 获取租户统计信息响应
+message GetTenantStatsResponse {
+  oneof result {
+    TenantStats stats = 1;
+    ErrorResponse error = 2;
+  }
+}
+
+// 获取租户审计日志请求
+message GetTenantAuditLogsRequest {
+  string tenant_id = 1 [(validate.rules).string.min_len = 1];
+  PagingRequest paging = 2;
+  google.protobuf.Timestamp start_time = 3;
+  google.protobuf.Timestamp end_time = 4;
+  string action = 5;
+  string user_id = 6;
+}
+
+// 获取租户审计日志响应
+message GetTenantAuditLogsResponse {
+  oneof result {
+    AuditLogsData data = 1;
+    ErrorResponse error = 2;
+  }
+}
+
+message AuditLogsData {
+  repeated AuditLog logs = 1;
+  PaginatedResponse pagination = 2;
+}
+
+message AuditLog {
+  string log_id = 1;
+  string tenant_id = 2;
+  string user_id = 3;
+  string action = 4;
+  string resource_type = 5;
+  string resource_id = 6;
+  string details = 7;
+  string ip_address = 8;
+  string user_agent = 9;
+  google.protobuf.Timestamp timestamp = 10;
+}
+
+// 导出租户数据请求
+message ExportTenantDataRequest {
+  string tenant_id = 1 [(validate.rules).string.min_len = 1];
+  repeated string data_types = 2; // 导出的数据类型
+  string format = 3; // 导出格式 (json, csv, xlsx)
+}
+
+// 导出租户数据响应
+message ExportTenantDataResponse {
+  oneof result {
+    ExportResult export_result = 1;
+    ErrorResponse error = 2;
+  }
+}
+
+message ExportResult {
+  string export_id = 1;
+  string download_url = 2;
+  google.protobuf.Timestamp expires_at = 3;
+}
+
+// 导入租户数据请求
+message ImportTenantDataRequest {
+  string tenant_id = 1 [(validate.rules).string.min_len = 1];
+  string file_url = 2 [(validate.rules).string.min_len = 1];
+  string format = 3; // 导入格式
+  bool overwrite = 4; // 是否覆盖现有数据
+}
+
+// 导入租户数据响应
+message ImportTenantDataResponse {
+  oneof result {
+    ImportResult import_result = 1;
+    ErrorResponse error = 2;
+  }
+}
+
+message ImportResult {
+  string import_id = 1;
+  int32 total_records = 2;
+  int32 success_records = 3;
+  int32 failed_records = 4;
+  repeated string errors = 5;
 }

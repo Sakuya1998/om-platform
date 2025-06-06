@@ -1,0 +1,594 @@
+syntax = "proto3";
+
+package user.service.v1;
+
+import "google/api/annotations.proto";
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/descriptor.proto";
+import "validate/validate.proto";
+import "api/user/service/v1/common.proto";
+import "api/user/service/v1/error_codes.proto";
+
+option go_package = "om-platform/api/user/service/v1;userv1";
+
+// 身份提供商服务
+service IdentityProviderService {
+  // 创建身份提供商
+  rpc CreateIdentityProvider(CreateIdentityProviderRequest) returns (CreateIdentityProviderResponse) {
+    option (google.api.http) = {
+      post: "/v1/identity-providers"
+      body: "*"
+    };
+    option (rate_limit) = {
+      requests_per_second: 10
+      burst: 20
+    };
+  }
+
+  // 获取身份提供商详情
+  rpc GetIdentityProvider(GetIdentityProviderRequest) returns (GetIdentityProviderResponse) {
+    option (google.api.http) = {
+      get: "/v1/identity-providers/{provider_id}"
+    };
+    option (cache) = {
+      ttl_seconds: 300
+      key_pattern: "idp:{provider_id}"
+    };
+  }
+
+  // 更新身份提供商
+  rpc UpdateIdentityProvider(UpdateIdentityProviderRequest) returns (UpdateIdentityProviderResponse) {
+    option (google.api.http) = {
+      put: "/v1/identity-providers/{provider_id}"
+      body: "*"
+    };
+    option (rate_limit) = {
+      requests_per_second: 20
+      burst: 40
+    };
+  }
+
+  // 删除身份提供商
+  rpc DeleteIdentityProvider(DeleteIdentityProviderRequest) returns (DeleteIdentityProviderResponse) {
+    option (google.api.http) = {
+      delete: "/v1/identity-providers/{provider_id}"
+    };
+    option (rate_limit) = {
+      requests_per_second: 5
+      burst: 10
+    };
+  }
+
+  // 获取身份提供商列表
+  rpc ListIdentityProviders(ListIdentityProvidersRequest) returns (ListIdentityProvidersResponse) {
+    option (google.api.http) = {
+      get: "/v1/identity-providers"
+    };
+    option (cache) = {
+      ttl_seconds: 60
+      key_pattern: "idps:list:{page}:{size}"
+    };
+  }
+
+  // 启用身份提供商
+  rpc EnableIdentityProvider(EnableIdentityProviderRequest) returns (EnableIdentityProviderResponse) {
+    option (google.api.http) = {
+      post: "/v1/identity-providers/{provider_id}/enable"
+      body: "*"
+    };
+    option (rate_limit) = {
+      requests_per_second: 10
+      burst: 20
+    };
+  }
+
+  // 禁用身份提供商
+  rpc DisableIdentityProvider(DisableIdentityProviderRequest) returns (DisableIdentityProviderResponse) {
+    option (google.api.http) = {
+      post: "/v1/identity-providers/{provider_id}/disable"
+      body: "*"
+    };
+    option (rate_limit) = {
+      requests_per_second: 10
+      burst: 20
+    };
+  }
+
+  // 测试身份提供商连接
+  rpc TestIdentityProvider(TestIdentityProviderRequest) returns (TestIdentityProviderResponse) {
+    option (google.api.http) = {
+      post: "/v1/identity-providers/{provider_id}/test"
+      body: "*"
+    };
+    option (rate_limit) = {
+      requests_per_second: 5
+      burst: 10
+    };
+  }
+
+  // 获取身份提供商配置模板
+  rpc GetIdentityProviderTemplate(GetIdentityProviderTemplateRequest) returns (GetIdentityProviderTemplateResponse) {
+    option (google.api.http) = {
+      get: "/v1/identity-providers/templates/{provider_type}"
+    };
+    option (cache) = {
+      ttl_seconds: 3600
+      key_pattern: "idp:template:{provider_type}"
+    };
+  }
+
+  // 同步用户数据
+  rpc SyncUsers(SyncUsersRequest) returns (SyncUsersResponse) {
+    option (google.api.http) = {
+      post: "/v1/identity-providers/{provider_id}/sync-users"
+      body: "*"
+    };
+    option (rate_limit) = {
+      requests_per_second: 2
+      burst: 5
+    };
+  }
+
+  // 获取同步状态
+  rpc GetSyncStatus(GetSyncStatusRequest) returns (GetSyncStatusResponse) {
+    option (google.api.http) = {
+      get: "/v1/identity-providers/{provider_id}/sync-status"
+    };
+  }
+
+  // 获取身份提供商统计信息
+  rpc GetIdentityProviderStats(GetIdentityProviderStatsRequest) returns (GetIdentityProviderStatsResponse) {
+    option (google.api.http) = {
+      get: "/v1/identity-providers/{provider_id}/stats"
+    };
+    option (cache) = {
+      ttl_seconds: 300
+      key_pattern: "idp:{provider_id}:stats"
+    };
+  }
+
+  // 获取身份提供商审计日志
+  rpc GetIdentityProviderAuditLogs(GetIdentityProviderAuditLogsRequest) returns (GetIdentityProviderAuditLogsResponse) {
+    option (google.api.http) = {
+      get: "/v1/identity-providers/{provider_id}/audit-logs"
+    };
+  }
+}
+
+// 身份提供商类型枚举
+enum IdentityProviderType {
+  IDENTITY_PROVIDER_TYPE_UNSPECIFIED = 0;
+  IDENTITY_PROVIDER_TYPE_LDAP = 1;        // LDAP
+  IDENTITY_PROVIDER_TYPE_AD = 2;          // Active Directory
+  IDENTITY_PROVIDER_TYPE_SAML = 3;        // SAML 2.0
+  IDENTITY_PROVIDER_TYPE_OIDC = 4;        // OpenID Connect
+  IDENTITY_PROVIDER_TYPE_OAUTH2 = 5;      // OAuth 2.0
+  IDENTITY_PROVIDER_TYPE_CAS = 6;         // CAS
+  IDENTITY_PROVIDER_TYPE_RADIUS = 7;      // RADIUS
+  IDENTITY_PROVIDER_TYPE_CUSTOM = 8;      // 自定义
+}
+
+// 身份提供商状态枚举
+enum IdentityProviderStatus {
+  IDENTITY_PROVIDER_STATUS_UNSPECIFIED = 0;
+  IDENTITY_PROVIDER_STATUS_ACTIVE = 1;     // 活跃
+  IDENTITY_PROVIDER_STATUS_INACTIVE = 2;   // 非活跃
+  IDENTITY_PROVIDER_STATUS_ERROR = 3;      // 错误
+  IDENTITY_PROVIDER_STATUS_SYNCING = 4;    // 同步中
+}
+
+// 同步状态枚举
+enum SyncStatus {
+  SYNC_STATUS_UNSPECIFIED = 0;
+  SYNC_STATUS_PENDING = 1;      // 待同步
+  SYNC_STATUS_RUNNING = 2;      // 同步中
+  SYNC_STATUS_SUCCESS = 3;      // 同步成功
+  SYNC_STATUS_FAILED = 4;       // 同步失败
+  SYNC_STATUS_PARTIAL = 5;      // 部分成功
+}
+
+// 身份提供商信息
+message IdentityProvider {
+  string provider_id = 1 [(validate.rules).string.min_len = 1];
+  string name = 2 [(validate.rules).string.min_len = 1];
+  string display_name = 3;
+  string description = 4;
+  IdentityProviderType type = 5;
+  IdentityProviderStatus status = 6;
+  IdentityProviderConfig config = 7;
+  bool auto_sync_enabled = 8;
+  int32 sync_interval_minutes = 9 [(validate.rules).int32.gte = 0];
+  google.protobuf.Timestamp last_sync_at = 10;
+  google.protobuf.Timestamp created_at = 11;
+  google.protobuf.Timestamp updated_at = 12;
+  AuditInfo audit_info = 13;
+  map<string, string> metadata = 14;
+  int32 priority = 15; // 优先级
+  repeated string allowed_domains = 16; // 允许的域名
+}
+
+// 身份提供商配置
+message IdentityProviderConfig {
+  oneof config {
+    LDAPConfig ldap_config = 1;
+    SAMLConfig saml_config = 2;
+    OIDCConfig oidc_config = 3;
+    OAuth2Config oauth2_config = 4;
+    CASConfig cas_config = 5;
+    RADIUSConfig radius_config = 6;
+    CustomConfig custom_config = 7;
+  }
+}
+
+// LDAP配置
+message LDAPConfig {
+  string server_url = 1 [(validate.rules).string.min_len = 1];
+  string bind_dn = 2;
+  string bind_password = 3;
+  string base_dn = 4 [(validate.rules).string.min_len = 1];
+  string user_filter = 5;
+  string group_filter = 6;
+  string user_id_attribute = 7;
+  string user_name_attribute = 8;
+  string user_email_attribute = 9;
+  string user_display_name_attribute = 10;
+  string group_name_attribute = 11;
+  string group_member_attribute = 12;
+  bool use_ssl = 13;
+  bool skip_ssl_verify = 14;
+  int32 timeout_seconds = 15 [(validate.rules).int32.gte = 0];
+  int32 page_size = 16 [(validate.rules).int32.gte = 0];
+}
+
+// SAML配置
+message SAMLConfig {
+  string entity_id = 1 [(validate.rules).string.min_len = 1];
+  string sso_url = 2 [(validate.rules).string.min_len = 1];
+  string slo_url = 3;
+  string certificate = 4;
+  string private_key = 5;
+  string name_id_format = 6;
+  map<string, string> attribute_mapping = 7;
+  bool sign_request = 8;
+  bool encrypt_assertion = 9;
+}
+
+// OIDC配置
+message OIDCConfig {
+  string issuer = 1 [(validate.rules).string.min_len = 1];
+  string client_id = 2 [(validate.rules).string.min_len = 1];
+  string client_secret = 3;
+  repeated string scopes = 4;
+  string redirect_uri = 5;
+  map<string, string> claim_mapping = 6;
+  bool use_pkce = 7;
+}
+
+// OAuth2配置
+message OAuth2Config {
+  string authorization_url = 1 [(validate.rules).string.min_len = 1];
+  string token_url = 2 [(validate.rules).string.min_len = 1];
+  string user_info_url = 3;
+  string client_id = 4 [(validate.rules).string.min_len = 1];
+  string client_secret = 5;
+  repeated string scopes = 6;
+  string redirect_uri = 7;
+  map<string, string> field_mapping = 8;
+}
+
+// CAS配置
+message CASConfig {
+  string server_url = 1 [(validate.rules).string.min_len = 1];
+  string service_url = 2 [(validate.rules).string.min_len = 1];
+  string version = 3;
+  map<string, string> attribute_mapping = 4;
+}
+
+// RADIUS配置
+message RADIUSConfig {
+  string server_host = 1 [(validate.rules).string.min_len = 1];
+  int32 server_port = 2 [(validate.rules).int32.gte = 1, (validate.rules).int32.lte = 65535];
+  string shared_secret = 3 [(validate.rules).string.min_len = 1];
+  int32 timeout_seconds = 4 [(validate.rules).int32.gte = 0];
+  int32 retries = 5 [(validate.rules).int32.gte = 0];
+}
+
+// 自定义配置
+message CustomConfig {
+  string endpoint = 1;
+  map<string, string> parameters = 2;
+  map<string, string> headers = 3;
+  string authentication_method = 4;
+  string username = 5;
+  string password = 6;
+  string token = 7;
+}
+
+// 同步结果
+message SyncResult {
+  string sync_id = 1;
+  SyncStatus status = 2;
+  google.protobuf.Timestamp started_at = 3;
+  google.protobuf.Timestamp completed_at = 4;
+  int32 total_users = 5;
+  int32 created_users = 6;
+  int32 updated_users = 7;
+  int32 deleted_users = 8;
+  int32 failed_users = 9;
+  repeated string errors = 10;
+  string message = 11;
+}
+
+// 身份提供商统计信息
+message IdentityProviderStats {
+  int32 total_users = 1;
+  int32 active_users = 2;
+  int32 successful_logins_today = 3;
+  int32 failed_logins_today = 4;
+  google.protobuf.Timestamp last_successful_login = 5;
+  google.protobuf.Timestamp last_sync = 6;
+  SyncResult last_sync_result = 7;
+  double average_response_time_ms = 8;
+  double success_rate = 9;
+}
+
+// 创建身份提供商请求
+message CreateIdentityProviderRequest {
+  string name = 1 [(validate.rules).string.min_len = 1];
+  string display_name = 2;
+  string description = 3;
+  IdentityProviderType type = 4;
+  IdentityProviderConfig config = 5;
+  bool auto_sync_enabled = 6;
+  int32 sync_interval_minutes = 7 [(validate.rules).int32.gte = 0];
+  map<string, string> metadata = 8;
+  int32 priority = 9;
+  repeated string allowed_domains = 10;
+}
+
+// 创建身份提供商响应
+message CreateIdentityProviderResponse {
+  oneof result {
+    IdentityProvider provider = 1;
+    ErrorResponse error = 2;
+  }
+}
+
+// 获取身份提供商请求
+message GetIdentityProviderRequest {
+  string provider_id = 1 [(validate.rules).string.min_len = 1];
+  repeated string fields = 2; // 字段筛选
+}
+
+// 获取身份提供商响应
+message GetIdentityProviderResponse {
+  oneof result {
+    IdentityProvider provider = 1;
+    ErrorResponse error = 2;
+  }
+}
+
+// 更新身份提供商请求
+message UpdateIdentityProviderRequest {
+  string provider_id = 1 [(validate.rules).string.min_len = 1];
+  string display_name = 2;
+  string description = 3;
+  IdentityProviderConfig config = 4;
+  bool auto_sync_enabled = 5;
+  int32 sync_interval_minutes = 6;
+  map<string, string> metadata = 7;
+  int32 priority = 8;
+  repeated string allowed_domains = 9;
+  repeated string update_mask = 10; // 更新字段掩码
+}
+
+// 更新身份提供商响应
+message UpdateIdentityProviderResponse {
+  oneof result {
+    IdentityProvider provider = 1;
+    ErrorResponse error = 2;
+  }
+}
+
+// 删除身份提供商请求
+message DeleteIdentityProviderRequest {
+  string provider_id = 1 [(validate.rules).string.min_len = 1];
+  bool force = 2; // 强制删除
+}
+
+// 删除身份提供商响应
+message DeleteIdentityProviderResponse {
+  oneof result {
+    bool success = 1;
+    ErrorResponse error = 2;
+  }
+}
+
+// 获取身份提供商列表请求
+message ListIdentityProvidersRequest {
+  PagingRequest paging = 1;
+  repeated SortOption sort_options = 2;
+  IdentityProviderType type = 3;
+  IdentityProviderStatus status = 4;
+  string search_keyword = 5;
+  repeated string fields = 6; // 字段筛选
+  map<string, string> filters = 7;
+}
+
+// 获取身份提供商列表响应
+message ListIdentityProvidersResponse {
+  oneof result {
+    IdentityProvidersData data = 1;
+    ErrorResponse error = 2;
+  }
+}
+
+message IdentityProvidersData {
+  repeated IdentityProvider providers = 1;
+  PaginatedResponse pagination = 2;
+}
+
+// 启用身份提供商请求
+message EnableIdentityProviderRequest {
+  string provider_id = 1 [(validate.rules).string.min_len = 1];
+  string reason = 2;
+}
+
+// 启用身份提供商响应
+message EnableIdentityProviderResponse {
+  oneof result {
+    bool success = 1;
+    ErrorResponse error = 2;
+  }
+}
+
+// 禁用身份提供商请求
+message DisableIdentityProviderRequest {
+  string provider_id = 1 [(validate.rules).string.min_len = 1];
+  string reason = 2 [(validate.rules).string.min_len = 1];
+}
+
+// 禁用身份提供商响应
+message DisableIdentityProviderResponse {
+  oneof result {
+    bool success = 1;
+    ErrorResponse error = 2;
+  }
+}
+
+// 测试身份提供商请求
+message TestIdentityProviderRequest {
+  string provider_id = 1 [(validate.rules).string.min_len = 1];
+  string test_username = 2;
+  string test_password = 3;
+}
+
+// 测试身份提供商响应
+message TestIdentityProviderResponse {
+  oneof result {
+    TestResult test_result = 1;
+    ErrorResponse error = 2;
+  }
+}
+
+message TestResult {
+  bool success = 1;
+  string message = 2;
+  double response_time_ms = 3;
+  map<string, string> user_attributes = 4;
+}
+
+// 获取身份提供商配置模板请求
+message GetIdentityProviderTemplateRequest {
+  IdentityProviderType provider_type = 1;
+}
+
+// 获取身份提供商配置模板响应
+message GetIdentityProviderTemplateResponse {
+  oneof result {
+    ProviderTemplate template = 1;
+    ErrorResponse error = 2;
+  }
+}
+
+message ProviderTemplate {
+  IdentityProviderType type = 1;
+  string name = 2;
+  string description = 3;
+  IdentityProviderConfig default_config = 4;
+  repeated ConfigField config_fields = 5;
+}
+
+message ConfigField {
+  string name = 1;
+  string display_name = 2;
+  string description = 3;
+  string type = 4; // string, int, bool, select
+  bool required = 5;
+  string default_value = 6;
+  repeated string options = 7; // for select type
+  string validation_regex = 8;
+}
+
+// 同步用户请求
+message SyncUsersRequest {
+  string provider_id = 1 [(validate.rules).string.min_len = 1];
+  bool full_sync = 2; // 是否全量同步
+  repeated string user_filters = 3; // 用户过滤条件
+}
+
+// 同步用户响应
+message SyncUsersResponse {
+  oneof result {
+    SyncResult sync_result = 1;
+    ErrorResponse error = 2;
+  }
+}
+
+// 获取同步状态请求
+message GetSyncStatusRequest {
+  string provider_id = 1 [(validate.rules).string.min_len = 1];
+  string sync_id = 2; // 可选，获取特定同步任务状态
+}
+
+// 获取同步状态响应
+message GetSyncStatusResponse {
+  oneof result {
+    SyncStatusData data = 1;
+    ErrorResponse error = 2;
+  }
+}
+
+message SyncStatusData {
+  SyncResult current_sync = 1;
+  repeated SyncResult recent_syncs = 2;
+}
+
+// 获取身份提供商统计信息请求
+message GetIdentityProviderStatsRequest {
+  string provider_id = 1 [(validate.rules).string.min_len = 1];
+}
+
+// 获取身份提供商统计信息响应
+message GetIdentityProviderStatsResponse {
+  oneof result {
+    IdentityProviderStats stats = 1;
+    ErrorResponse error = 2;
+  }
+}
+
+// 获取身份提供商审计日志请求
+message GetIdentityProviderAuditLogsRequest {
+  string provider_id = 1 [(validate.rules).string.min_len = 1];
+  PagingRequest paging = 2;
+  google.protobuf.Timestamp start_time = 3;
+  google.protobuf.Timestamp end_time = 4;
+  string action = 5;
+  string user_id = 6;
+}
+
+// 获取身份提供商审计日志响应
+message GetIdentityProviderAuditLogsResponse {
+  oneof result {
+    IdentityProviderAuditLogsData data = 1;
+    ErrorResponse error = 2;
+  }
+}
+
+message IdentityProviderAuditLogsData {
+  repeated IdentityProviderAuditLog logs = 1;
+  PaginatedResponse pagination = 2;
+}
+
+message IdentityProviderAuditLog {
+  string log_id = 1;
+  string provider_id = 2;
+  string user_id = 3;
+  string action = 4;
+  string details = 5;
+  string ip_address = 6;
+  string user_agent = 7;
+  bool success = 8;
+  string error_message = 9;
+  google.protobuf.Timestamp timestamp = 10;
+}

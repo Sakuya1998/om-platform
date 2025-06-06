@@ -1,132 +1,1140 @@
 syntax = "proto3";
 
-package api.user.service.v1;
+package user.service.v1;
 
-import "gnostic/openapi/v3/annotations.proto";
-
+import "google/api/annotations.proto";
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/field_mask.proto";
+import "google/protobuf/struct.proto";
+import "google/protobuf/descriptor.proto";
+import "validate/validate.proto";
+import "api/user/service/v1/common.proto";
+import "api/user/service/v1/error_codes.proto";
 
-import "pkg/utils/pagination/v1/pagination.proto";
-
-option go_package = "om-platform/api/user/service/v1;v1";
+option go_package = "om-platform/api/user/service/v1;userv1";
 option java_multiple_files = true;
 option java_package = "api.user.service.v1";
 
-// 部门服务
+// 部门服务 (DepartmentService)
+// 提供部门结构管理、部门成员管理和部门配置管理等功能
+// 错误处理：所有接口在发生错误时将返回ErrorResponse结构，包含统一的错误码、错误消息和详细信息
+// 性能说明：支持高并发访问，关键接口已实现缓存优化
+// 安全说明：所有接口需要认证和授权，详见权限矩阵文档
 service DepartmentService {
   // 查询部门列表
-  rpc ListDepartment (pkg.utils.pagination.v1.PagingRequest) returns (ListDepartmentResponse) {}
+  // 支持按名称、状态等条件筛选
+  // 支持分页和排序
+  // 权限要求：DEPARTMENT_READ 或 ADMIN 或 ORGANIZATION_MEMBER
+  // 可能的错误码：PERMISSION_DENIED, INVALID_ARGUMENT
+  rpc ListDepartments (ListDepartmentsRequest) returns (ListDepartmentsResponse) {
+    option (google.api.http) = {
+      get: "/v1/departments"
+    };
+    option (rate_limit) = {
+      requests_per_second: 100
+      burst: 200
+    };
+    option (cache) = {
+      ttl_seconds: 60
+      key_pattern: "depts:list:{page}:{size}"
+    };
+  }
 
   // 查询部门详情
-  rpc GetDepartment (GetDepartmentRequest) returns (Department) {}
-
+  // 根据部门ID获取部门详细信息
+  // 权限要求：DEPARTMENT_READ 或 ADMIN 或 ORGANIZATION_MEMBER
+  // 可能的错误码：DEPARTMENT_NOT_FOUND, PERMISSION_DENIED
+  rpc GetDepartment (GetDepartmentRequest) returns (Department) {
+    option (google.api.http) = {
+      get: "/v1/departments/{department_id}"
+    };
+    option (cache) = {
+      ttl_seconds: 300
+      key_pattern: "dept:{department_id}"
+    };
+  }
+  
   // 创建部门
-  rpc CreateDepartment (CreateDepartmentRequest) returns (google.protobuf.Empty) {}
+  // 创建新部门并返回部门ID
+  // 权限要求：DEPARTMENT_CREATE 或 ADMIN 或 ORGANIZATION_OWNER
+  // 可能的错误码：DEPARTMENT_ALREADY_EXISTS, PERMISSION_DENIED, INVALID_ARGUMENT
+  rpc CreateDepartment (CreateDepartmentRequest) returns (CreateDepartmentResponse) {
+    option (google.api.http) = {
+      post: "/v1/departments"
+      body: "*"
+    };
+    option (rate_limit) = {
+      requests_per_second: 50
+      burst: 100
+    };
+  }
 
   // 更新部门
-  rpc UpdateDepartment (UpdateDepartmentRequest) returns (google.protobuf.Empty) {}
+  // 更新部门信息，使用FieldMask指定需要更新的字段
+  // 权限要求：DEPARTMENT_UPDATE 或 ADMIN 或 ORGANIZATION_OWNER
+  // 可能的错误码：DEPARTMENT_NOT_FOUND, PERMISSION_DENIED, INVALID_ARGUMENT
+  rpc UpdateDepartment (UpdateDepartmentRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      put: "/v1/departments/{department_id}"
+      body: "*"
+    };
+    option (rate_limit) = {
+      requests_per_second: 100
+      burst: 200
+    };
+  }
 
   // 删除部门
-  rpc DeleteDepartment (DeleteDepartmentRequest) returns (google.protobuf.Empty) {}
+  // 删除指定部门（逻辑删除）
+  // 权限要求：DEPARTMENT_DELETE 或 ADMIN 或 ORGANIZATION_OWNER
+  // 可能的错误码：DEPARTMENT_NOT_FOUND, PERMISSION_DENIED
+  rpc DeleteDepartment (DeleteDepartmentRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      delete: "/v1/departments/{department_id}"
+    };
+    option (rate_limit) = {
+      requests_per_second: 50
+      burst: 100
+    };
+  }
+
+  // 批量获取部门信息
+  // 根据部门ID列表批量获取部门信息
+  // 权限要求：DEPARTMENT_READ 或 ADMIN 或 ORGANIZATION_MEMBER
+  // 可能的错误码：PERMISSION_DENIED, INVALID_ARGUMENT
+  rpc BatchGetDepartments (BatchGetDepartmentsRequest) returns (BatchGetDepartmentsResponse) {
+    option (cache) = {
+      cacheable: true
+      ttl_seconds: 60
+      cache_keys: ["ids", "field_mask"]
+    };
+  }
+
+  // 批量创建部门
+  // 批量创建多个部门并返回创建结果
+  // 权限要求：DEPARTMENT_CREATE 或 ADMIN 或 ORGANIZATION_OWNER
+  // 可能的错误码：DEPARTMENT_ALREADY_EXISTS, PERMISSION_DENIED, INVALID_ARGUMENT
+  rpc BatchCreateDepartments (BatchCreateDepartmentsRequest) returns (BatchCreateDepartmentsResponse) {
+    option (google.api.http) = {
+      post: "/v1/departments/batch"
+      body: "*"
+    };
+    option (rate_limit) = {
+      requests_per_second: 10
+      burst: 20
+    };
+  }
+
+  // 批量更新部门
+  // 批量更新多个部门信息
+  // 权限要求：DEPARTMENT_UPDATE 或 ADMIN 或 ORGANIZATION_OWNER
+  // 可能的错误码：DEPARTMENT_NOT_FOUND, PERMISSION_DENIED, INVALID_ARGUMENT
+  rpc BatchUpdateDepartments (BatchUpdateDepartmentsRequest) returns (BatchUpdateDepartmentsResponse) {
+    option (google.api.http) = {
+      put: "/v1/departments/batch"
+      body: "*"
+    };
+    option (rate_limit) = {
+      requests_per_second: 10
+      burst: 20
+    };
+  }
+
+  // 批量删除部门
+  // 批量删除多个部门（逻辑删除）
+  // 权限要求：DEPARTMENT_DELETE 或 ADMIN 或 ORGANIZATION_OWNER
+  // 可能的错误码：DEPARTMENT_NOT_FOUND, PERMISSION_DENIED
+  rpc BatchDeleteDepartments (BatchDeleteDepartmentsRequest) returns (BatchDeleteDepartmentsResponse) {
+    option (google.api.http) = {
+      delete: "/v1/departments/batch"
+      body: "*"
+    };
+    option (rate_limit) = {
+      requests_per_second: 10
+      burst: 20
+    };
+  }
+
+  // 获取部门成员列表
+  // 获取指定部门的所有成员
+  // 权限要求：DEPARTMENT_READ 或 ADMIN 或 ORGANIZATION_MEMBER
+  // 可能的错误码：DEPARTMENT_NOT_FOUND, PERMISSION_DENIED
+  rpc ListDepartmentMembers (ListDepartmentMembersRequest) returns (ListDepartmentMembersResponse) {
+    option (google.api.http) = {
+      get: "/v1/departments/{department_id}/members"
+    };
+    option (cache) = {
+      ttl_seconds: 300
+      key_pattern: "dept:{department_id}:members:{page}:{size}"
+    };
+  }
+
+  // 添加部门成员
+  // 向部门添加一个或多个成员
+  // 权限要求：DEPARTMENT_MEMBER_MANAGE 或 ADMIN 或 ORGANIZATION_OWNER
+  // 可能的错误码：DEPARTMENT_NOT_FOUND, USER_NOT_FOUND, PERMISSION_DENIED, INVALID_ARGUMENT
+  rpc AddDepartmentMembers (AddDepartmentMembersRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post: "/v1/departments/{department_id}/members"
+      body: "*"
+    };
+    option (rate_limit) = {
+      requests_per_second: 100
+      burst: 200
+    };
+  }
+
+  // 移除部门成员
+  // 从部门移除一个或多个成员
+  // 权限要求：DEPARTMENT_MEMBER_MANAGE 或 ADMIN 或 ORGANIZATION_OWNER
+  // 可能的错误码：DEPARTMENT_NOT_FOUND, USER_NOT_FOUND, PERMISSION_DENIED
+  rpc RemoveDepartmentMembers (RemoveDepartmentMembersRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      delete: "/v1/departments/{department_id}/members"
+      body: "*"
+    };
+    option (rate_limit) = {
+      requests_per_second: 100
+      burst: 200
+    };
+  }
+
+  // 更新部门成员角色
+  // 更新部门成员的角色
+  // 权限要求：DEPARTMENT_MEMBER_MANAGE 或 ADMIN 或 ORGANIZATION_OWNER
+  // 可能的错误码：DEPARTMENT_NOT_FOUND, USER_NOT_FOUND, PERMISSION_DENIED, INVALID_ARGUMENT
+  rpc UpdateDepartmentMemberRole (UpdateDepartmentMemberRoleRequest) returns (google.protobuf.Empty) {}
+
+  // 获取部门结构树
+  // 获取部门的层级结构树
+  // 权限要求：DEPARTMENT_READ 或 ADMIN 或 ORGANIZATION_MEMBER
+  // 可能的错误码：DEPARTMENT_NOT_FOUND, PERMISSION_DENIED
+  rpc GetDepartmentTree (GetDepartmentTreeRequest) returns (GetDepartmentTreeResponse) {
+    option (google.api.http) = {
+      get: "/v1/organizations/{organization_id}/departments/tree"
+    };
+    option (cache) = {
+      ttl_seconds: 300
+      key_pattern: "org:{organization_id}:dept:tree:{depth}"
+    };
+  }
+
+  // 移动部门
+  // 将部门移动到新的父部门下
+  // 权限要求：DEPARTMENT_UPDATE 或 ADMIN 或 ORGANIZATION_OWNER
+  // 可能的错误码：DEPARTMENT_NOT_FOUND, PERMISSION_DENIED, INVALID_ARGUMENT
+  rpc MoveDepartment (MoveDepartmentRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post: "/v1/departments/{department_id}/move"
+      body: "*"
+    };
+    option (rate_limit) = {
+      requests_per_second: 50
+      burst: 100
+    };
+  }
+
+  // 获取用户所属部门列表
+  // 获取指定用户所属的所有部门
+  // 权限要求：DEPARTMENT_READ 或 ADMIN 或 SELF
+  // 可能的错误码：USER_NOT_FOUND, PERMISSION_DENIED
+  rpc GetUserDepartments (GetUserDepartmentsRequest) returns (GetUserDepartmentsResponse) {
+    option (google.api.http) = {
+      get: "/v1/users/{user_id}/departments"
+    };
+    option (cache) = {
+      ttl_seconds: 300
+      key_pattern: "user:{user_id}:depts"
+    };
+  }
+
+  // 导出部门成员
+  // 导出部门成员列表
+  // 权限要求：DEPARTMENT_READ 或 ADMIN 或 ORGANIZATION_OWNER
+  // 可能的错误码：DEPARTMENT_NOT_FOUND, PERMISSION_DENIED
+  rpc ExportDepartmentMembers (ExportDepartmentMembersRequest) returns (stream ExportDepartmentMembersResponse) {
+    option (google.api.http) = {
+      post: "/v1/departments/{department_id}/members/export"
+      body: "*"
+    };
+    option (rate_limit) = {
+      requests_per_second: 5
+      burst: 10
+    };
+  }
+
+  // 导入部门成员
+  // 批量导入部门成员
+  // 权限要求：DEPARTMENT_MEMBER_MANAGE 或 ADMIN 或 ORGANIZATION_OWNER
+  // 可能的错误码：DEPARTMENT_NOT_FOUND, PERMISSION_DENIED, INVALID_ARGUMENT
+  rpc ImportDepartmentMembers (stream ImportDepartmentMembersRequest) returns (ImportDepartmentMembersResponse) {
+    option (google.api.http) = {
+      post: "/v1/departments/{department_id}/members/import"
+      body: "*"
+    };
+    option (rate_limit) = {
+      requests_per_second: 5
+      burst: 10
+    };
+  }
 }
 
 // 部门
 message Department {
-  optional uint32 id = 1 [
+  // 部门ID
+  uint32 id = 1 [
     json_name = "id",
     (gnostic.openapi.v3.property) = {description: "部门ID"}
-  ];  // 部门ID
-
-  optional string name = 2 [
+  ];
+  
+  // 部门名称
+  string name = 2 [
     json_name = "name",
     (gnostic.openapi.v3.property) = {description: "部门名称"}
-  ];  // 部门名称
-
-  optional int32 organization_id = 3 [
+  ];
+  
+  // 部门代码
+  string code = 3 [
+    json_name = "code",
+    (gnostic.openapi.v3.property) = {description: "部门代码"}
+  ];
+  
+  // 部门类型
+  string type = 4 [
+    json_name = "type",
+    (gnostic.openapi.v3.property) = {description: "部门类型"}
+  ];
+  
+  // 组织ID
+  uint32 organization_id = 5 [
     json_name = "organizationId",
-    (gnostic.openapi.v3.property) = {description: "所属组织ID"}
-  ];  // 所属组织ID
-
-  optional string organization_name = 4 [
-    json_name = "organizationName",
-    (gnostic.openapi.v3.property) = {description: "所属组织名称"}
-  ];  // 所属组织名称
-
-  optional uint32 create_by = 5 [json_name = "createBy", (gnostic.openapi.v3.property) = {description: "创建者ID"}]; // 创建者ID
-  optional uint32 update_by = 6 [json_name = "updateBy", (gnostic.openapi.v3.property) = {description: "更新者ID"}]; // 更新者ID
-
-  optional int32 sort_id = 10 [
-    json_name = "sortId",
-    (gnostic.openapi.v3.property) = {description: "排序编号"}
-  ];  // 排序编号
-
-  optional string status = 11 [(gnostic.openapi.v3.property) = {
-    description: "状态"
-    default: {string: "ON"}
-    enum: [{yaml: "ON"}, {yaml: "OFF"}]
-  }]; // 状态
-
-  optional string remark = 12 [json_name = "remark", (gnostic.openapi.v3.property) = {description: "备注"}];  // 备注
-
-  optional uint32 parent_id = 100 [json_name = "parentId", (gnostic.openapi.v3.property) = {description: "父节点ID"}];  // 父节点ID
-  repeated Department children = 101 [json_name = "children", (gnostic.openapi.v3.property) = {description: "子节点树"}];  // 子节点树
-
-  optional google.protobuf.Timestamp create_time = 200 [json_name = "createTime", (gnostic.openapi.v3.property) = {description: "创建时间"}];// 创建时间
-  optional google.protobuf.Timestamp update_time = 201 [json_name = "updateTime", (gnostic.openapi.v3.property) = {description: "更新时间"}];// 更新时间
-  optional google.protobuf.Timestamp delete_time = 202 [json_name = "deleteTime", (gnostic.openapi.v3.property) = {description: "删除时间"}];// 删除时间
+    (gnostic.openapi.v3.property) = {description: "组织ID"}
+  ];
+  
+  // 父部门ID
+  optional uint32 parent_id = 6 [
+    json_name = "parentId",
+    (gnostic.openapi.v3.property) = {description: "父部门ID"}
+  ];
+  
+  // 部门描述
+  optional string description = 7 [
+    json_name = "description",
+    (gnostic.openapi.v3.property) = {description: "部门描述"}
+  ];
+  
+  // 部门状态：ACTIVE, INACTIVE
+  string status = 8 [
+    json_name = "status",
+    (gnostic.openapi.v3.property) = {description: "部门状态：ACTIVE, INACTIVE"}
+  ];
+  
+  // 部门排序
+  optional int32 sort_order = 9 [
+    json_name = "sortOrder",
+    (gnostic.openapi.v3.property) = {description: "部门排序"}
+  ];
+  
+  // 部门负责人ID
+  optional uint32 manager_id = 10 [
+    json_name = "managerId",
+    (gnostic.openapi.v3.property) = {description: "部门负责人ID"}
+  ];
+  
+  // 部门负责人名称
+  optional string manager_name = 11 [
+    json_name = "managerName",
+    (gnostic.openapi.v3.property) = {description: "部门负责人名称"}
+  ];
+  
+  // 部门联系电话
+  optional string contact_phone = 12 [
+    json_name = "contactPhone",
+    (gnostic.openapi.v3.property) = {description: "部门联系电话"}
+  ];
+  
+  // 部门联系邮箱
+  optional string contact_email = 13 [
+    json_name = "contactEmail",
+    (gnostic.openapi.v3.property) = {description: "部门联系邮箱"}
+  ];
+  
+  // 部门地址
+  optional string address = 14 [
+    json_name = "address",
+    (gnostic.openapi.v3.property) = {description: "部门地址"}
+  ];
+  
+  // 部门标签
+  repeated string tags = 15 [
+    json_name = "tags",
+    (gnostic.openapi.v3.property) = {description: "部门标签"}
+  ];
+  
+  // 部门成员数量
+  optional uint32 member_count = 16 [
+    json_name = "memberCount",
+    (gnostic.openapi.v3.property) = {description: "部门成员数量"}
+  ];
+  
+  // 部门子部门数量
+  optional uint32 child_count = 17 [
+    json_name = "childCount",
+    (gnostic.openapi.v3.property) = {description: "部门子部门数量"}
+  ];
+  
+  // 部门创建时间
+  google.protobuf.Timestamp created_at = 18 [
+    json_name = "createdAt",
+    (gnostic.openapi.v3.property) = {description: "部门创建时间"}
+  ];
+  
+  // 部门更新时间
+  google.protobuf.Timestamp updated_at = 19 [
+    json_name = "updatedAt",
+    (gnostic.openapi.v3.property) = {description: "部门更新时间"}
+  ];
+  
+  // 审计信息
+  optional AuditInfo audit_info = 20 [
+    json_name = "auditInfo",
+    (gnostic.openapi.v3.property) = {description: "审计信息"}
+  ];
+  
+  // 扩展字段
+  optional google.protobuf.Struct extensions = 21 [
+    json_name = "extensions",
+    (gnostic.openapi.v3.property) = {description: "扩展字段"}
+  ];
 }
-// 部门列表 - 答复
-message ListDepartmentResponse {
-  repeated Department items = 1;
-  uint32 total = 2;
+
+// 部门成员
+message DepartmentMember {
+  // 用户ID
+  uint32 user_id = 1 [
+    json_name = "userId",
+    (gnostic.openapi.v3.property) = {description: "用户ID"}
+  ];
+  
+  // 部门ID
+  uint32 department_id = 2 [
+    json_name = "departmentId",
+    (gnostic.openapi.v3.property) = {description: "部门ID"}
+  ];
+  
+  // 用户名
+  string username = 3 [
+    json_name = "username",
+    (gnostic.openapi.v3.property) = {description: "用户名"}
+  ];
+  
+  // 真实姓名
+  optional string real_name = 4 [
+    json_name = "realName",
+    (gnostic.openapi.v3.property) = {description: "真实姓名"}
+  ];
+  
+  // 成员角色：MANAGER, MEMBER
+  string role = 5 [
+    json_name = "role",
+    (gnostic.openapi.v3.property) = {description: "成员角色：MANAGER, MEMBER"}
+  ];
+  
+  // 职位ID
+  optional uint32 position_id = 6 [
+    json_name = "positionId",
+    (gnostic.openapi.v3.property) = {description: "职位ID"}
+  ];
+  
+  // 职位名称
+  optional string position_name = 7 [
+    json_name = "positionName",
+    (gnostic.openapi.v3.property) = {description: "职位名称"}
+  ];
+  
+  // 邮箱
+  optional string email = 8 [
+    json_name = "email",
+    (gnostic.openapi.v3.property) = {description: "邮箱"}
+  ];
+  
+  // 手机号
+  optional string mobile = 9 [
+    json_name = "mobile",
+    (gnostic.openapi.v3.property) = {description: "手机号"}
+  ];
+  
+  // 头像
+  optional string avatar = 10 [
+    json_name = "avatar",
+    (gnostic.openapi.v3.property) = {description: "头像"}
+  ];
+  
+  // 加入时间
+  google.protobuf.Timestamp joined_at = 11 [
+    json_name = "joinedAt",
+    (gnostic.openapi.v3.property) = {description: "加入时间"}
+  ];
+  
+  // 最后活跃时间
+  optional google.protobuf.Timestamp last_active_at = 12 [
+    json_name = "lastActiveAt",
+    (gnostic.openapi.v3.property) = {description: "最后活跃时间"}
+  ];
+  
+  // 扩展字段
+  optional google.protobuf.Struct extensions = 13 [
+    json_name = "extensions",
+    (gnostic.openapi.v3.property) = {description: "扩展字段"}
+  ];
 }
 
-// 部门数据 - 请求
+// 查询部门列表请求
+message ListDepartmentsRequest {
+  // 组织ID
+  uint32 organization_id = 1 [
+    json_name = "organizationId",
+    (gnostic.openapi.v3.property) = {description: "组织ID"}
+  ];
+  
+  // 分页参数
+  uint32 page = 2 [
+    json_name = "page",
+    (gnostic.openapi.v3.property) = {description: "页码，从1开始"}
+  ];
+  
+  uint32 page_size = 3 [
+    json_name = "pageSize",
+    (gnostic.openapi.v3.property) = {description: "每页记录数"}
+  ];
+  
+  // 过滤条件
+  optional google.protobuf.Struct filter = 4 [
+    json_name = "filter",
+    (gnostic.openapi.v3.property) = {description: "过滤条件"}
+  ];
+  
+  // 排序选项
+  repeated SortOption sort = 5 [
+    json_name = "sort",
+    (gnostic.openapi.v3.property) = {description: "排序选项"}
+  ];
+  
+  // 是否包含子部门
+  optional bool include_children = 6 [
+    json_name = "includeChildren",
+    (gnostic.openapi.v3.property) = {description: "是否包含子部门"}
+  ];
+  
+  // 父部门ID
+  optional uint32 parent_id = 7 [
+    json_name = "parentId",
+    (gnostic.openapi.v3.property) = {description: "父部门ID"}
+  ];
+  
+  // 字段掩码
+  optional google.protobuf.FieldMask field_mask = 8 [
+    json_name = "fieldMask",
+    (gnostic.openapi.v3.property) = {description: "字段掩码"}
+  ];
+}
+
+// 查询部门列表响应
+message ListDepartmentsResponse {
+  // 分页信息
+  PaginatedResponse pagination = 1 [
+    json_name = "pagination",
+    (gnostic.openapi.v3.property) = {description: "分页信息"}
+  ];
+  
+  // 部门列表
+  repeated Department departments = 2 [
+    json_name = "departments",
+    (gnostic.openapi.v3.property) = {description: "部门列表"}
+  ];
+}
+
+// 查询部门详情请求
 message GetDepartmentRequest {
-  uint32 id = 1;
+  // 部门ID
+  uint32 id = 1 [
+    json_name = "id",
+    (gnostic.openapi.v3.property) = {description: "部门ID"}
+  ];
+  
+  // 字段掩码
+  optional google.protobuf.FieldMask field_mask = 2 [
+    json_name = "fieldMask",
+    (gnostic.openapi.v3.property) = {description: "字段掩码"}
+  ];
 }
 
-// 创建部门 - 请求
+// 创建部门请求
 message CreateDepartmentRequest {
-  optional uint32 operator_id = 1 [
-    (gnostic.openapi.v3.property) = {description: "操作用户ID", read_only: true},
-    json_name = "operatorId"
-  ]; // 操作用户ID
-
-  Department data = 2;
+  // 部门信息
+  Department department = 1 [
+    json_name = "department",
+    (gnostic.openapi.v3.property) = {description: "部门信息"}
+  ];
 }
 
-// 更新部门 - 请求
+// 创建部门响应
+message CreateDepartmentResponse {
+  // 部门ID
+  uint32 id = 1 [
+    json_name = "id",
+    (gnostic.openapi.v3.property) = {description: "部门ID"}
+  ];
+}
+
+// 更新部门请求
 message UpdateDepartmentRequest {
-  optional uint32 operator_id = 1 [
-    (gnostic.openapi.v3.property) = {description: "操作用户ID", read_only: true},
-    json_name = "operatorId"
-  ]; // 操作用户ID
-
-  Department data = 2;
-
-  google.protobuf.FieldMask update_mask = 3 [
-    (gnostic.openapi.v3.property) = {
-      description: "要更新的字段列表",
-      example: {yaml : "id,realName,userName"}
-    },
-    json_name = "updateMask"
-  ]; // 要更新的字段列表
-
-  optional bool allow_missing = 4 [
-    (gnostic.openapi.v3.property) = {description: "如果设置为true的时候，资源不存在则会新增(插入)，并且在这种情况下`updateMask`字段将会被忽略。"},
-    json_name = "allowMissing"
-  ]; // 如果设置为true的时候，资源不存在则会新增(插入)，并且在这种情况下`updateMask`字段将会被忽略。
+  // 部门信息
+  Department department = 1 [
+    json_name = "department",
+    (gnostic.openapi.v3.property) = {description: "部门信息"}
+  ];
+  
+  // 更新掩码
+  google.protobuf.FieldMask update_mask = 2 [
+    json_name = "updateMask",
+    (gnostic.openapi.v3.property) = {description: "更新掩码"}
+  ];
 }
 
-// 删除部门 - 请求
+// 删除部门请求
 message DeleteDepartmentRequest {
-  optional uint32 operator_id = 1 [
-    (gnostic.openapi.v3.property) = {description: "操作用户ID", read_only: true},
-    json_name = "operatorId"
-  ]; // 操作用户ID
+  // 部门ID
+  uint32 id = 1 [
+    json_name = "id",
+    (gnostic.openapi.v3.property) = {description: "部门ID"}
+  ];
+}
 
-  uint32 id = 2;
+// 批量获取部门请求
+message BatchGetDepartmentsRequest {
+  // 部门ID列表
+  repeated uint32 ids = 1 [
+    json_name = "ids",
+    (gnostic.openapi.v3.property) = {description: "部门ID列表"}
+  ];
+  
+  // 字段掩码
+  optional google.protobuf.FieldMask field_mask = 2 [
+    json_name = "fieldMask",
+    (gnostic.openapi.v3.property) = {description: "字段掩码"}
+  ];
+}
+
+// 批量获取部门响应
+message BatchGetDepartmentsResponse {
+  // 部门列表
+  repeated Department departments = 1 [
+    json_name = "departments",
+    (gnostic.openapi.v3.property) = {description: "部门列表"}
+  ];
+  
+  // 未找到的部门ID列表
+  repeated uint32 not_found_ids = 2 [
+    json_name = "notFoundIds",
+    (gnostic.openapi.v3.property) = {description: "未找到的部门ID列表"}
+  ];
+}
+
+// 批量创建部门请求
+message BatchCreateDepartmentsRequest {
+  // 部门列表
+  repeated Department departments = 1 [
+    json_name = "departments",
+    (gnostic.openapi.v3.property) = {description: "部门列表"}
+  ];
+}
+
+// 批量创建部门响应
+message BatchCreateDepartmentsResponse {
+  // 批量操作结果
+  BatchOperationResult result = 1 [
+    json_name = "result",
+    (gnostic.openapi.v3.property) = {description: "批量操作结果"}
+  ];
+  
+  // 创建成功的部门ID列表
+  repeated uint32 created_ids = 2 [
+    json_name = "createdIds",
+    (gnostic.openapi.v3.property) = {description: "创建成功的部门ID列表"}
+  ];
+}
+
+// 批量更新部门请求
+message BatchUpdateDepartmentsRequest {
+  // 部门列表
+  repeated Department departments = 1 [
+    json_name = "departments",
+    (gnostic.openapi.v3.property) = {description: "部门列表"}
+  ];
+  
+  // 更新掩码
+  google.protobuf.FieldMask update_mask = 2 [
+    json_name = "updateMask",
+    (gnostic.openapi.v3.property) = {description: "更新掩码"}
+  ];
+  
+  // 是否跳过不存在的部门
+  optional bool skip_not_found = 3 [
+    json_name = "skipNotFound",
+    (gnostic.openapi.v3.property) = {description: "是否跳过不存在的部门"}
+  ];
+}
+
+// 批量更新部门响应
+message BatchUpdateDepartmentsResponse {
+  // 批量操作结果
+  BatchOperationResult result = 1 [
+    json_name = "result",
+    (gnostic.openapi.v3.property) = {description: "批量操作结果"}
+  ];
+}
+
+// 批量删除部门请求
+message BatchDeleteDepartmentsRequest {
+  // 部门ID列表
+  repeated uint32 ids = 1 [
+    json_name = "ids",
+    (gnostic.openapi.v3.property) = {description: "部门ID列表"}
+  ];
+  
+  // 是否跳过不存在的部门
+  optional bool skip_not_found = 2 [
+    json_name = "skipNotFound",
+    (gnostic.openapi.v3.property) = {description: "是否跳过不存在的部门"}
+  ];
+}
+
+// 批量删除部门响应
+message BatchDeleteDepartmentsResponse {
+  // 批量操作结果
+  BatchOperationResult result = 1 [
+    json_name = "result",
+    (gnostic.openapi.v3.property) = {description: "批量操作结果"}
+  ];
+}
+
+// 获取部门成员列表请求
+message ListDepartmentMembersRequest {
+  // 部门ID
+  uint32 department_id = 1 [
+    json_name = "departmentId",
+    (gnostic.openapi.v3.property) = {description: "部门ID"}
+  ];
+  
+  // 分页参数
+  uint32 page = 2 [
+    json_name = "page",
+    (gnostic.openapi.v3.property) = {description: "页码，从1开始"}
+  ];
+  
+  uint32 page_size = 3 [
+    json_name = "pageSize",
+    (gnostic.openapi.v3.property) = {description: "每页记录数"}
+  ];
+  
+  // 过滤条件
+  optional google.protobuf.Struct filter = 4 [
+    json_name = "filter",
+    (gnostic.openapi.v3.property) = {description: "过滤条件"}
+  ];
+  
+  // 排序选项
+  repeated SortOption sort = 5 [
+    json_name = "sort",
+    (gnostic.openapi.v3.property) = {description: "排序选项"}
+  ];
+  
+  // 角色过滤
+  optional string role = 6 [
+    json_name = "role",
+    (gnostic.openapi.v3.property) = {description: "角色过滤"}
+  ];
+}
+
+// 获取部门成员列表响应
+message ListDepartmentMembersResponse {
+  // 分页信息
+  PaginatedResponse pagination = 1 [
+    json_name = "pagination",
+    (gnostic.openapi.v3.property) = {description: "分页信息"}
+  ];
+  
+  // 成员列表
+  repeated DepartmentMember members = 2 [
+    json_name = "members",
+    (gnostic.openapi.v3.property) = {description: "成员列表"}
+  ];
+}
+
+// 添加部门成员请求
+message AddDepartmentMembersRequest {
+  // 部门ID
+  uint32 department_id = 1 [
+    json_name = "departmentId",
+    (gnostic.openapi.v3.property) = {description: "部门ID"}
+  ];
+  
+  // 用户ID列表
+  repeated uint32 user_ids = 2 [
+    json_name = "userIds",
+    (gnostic.openapi.v3.property) = {description: "用户ID列表"}
+  ];
+  
+  // 成员角色
+  optional string role = 3 [
+    json_name = "role",
+    (gnostic.openapi.v3.property) = {description: "成员角色"}
+  ];
+  
+  // 职位ID
+  optional uint32 position_id = 4 [
+    json_name = "positionId",
+    (gnostic.openapi.v3.property) = {description: "职位ID"}
+  ];
+}
+
+// 移除部门成员请求
+message RemoveDepartmentMembersRequest {
+  // 部门ID
+  uint32 department_id = 1 [
+    json_name = "departmentId",
+    (gnostic.openapi.v3.property) = {description: "部门ID"}
+  ];
+  
+  // 用户ID列表
+  repeated uint32 user_ids = 2 [
+    json_name = "userIds",
+    (gnostic.openapi.v3.property) = {description: "用户ID列表"}
+  ];
+}
+
+// 更新部门成员角色请求
+message UpdateDepartmentMemberRoleRequest {
+  // 部门ID
+  uint32 department_id = 1 [
+    json_name = "departmentId",
+    (gnostic.openapi.v3.property) = {description: "部门ID"}
+  ];
+  
+  // 用户ID
+  uint32 user_id = 2 [
+    json_name = "userId",
+    (gnostic.openapi.v3.property) = {description: "用户ID"}
+  ];
+  
+  // 新角色
+  string role = 3 [
+    json_name = "role",
+    (gnostic.openapi.v3.property) = {description: "新角色"}
+  ];
+}
+
+// 获取部门结构树请求
+message GetDepartmentTreeRequest {
+  // 组织ID
+  uint32 organization_id = 1 [
+    json_name = "organizationId",
+    (gnostic.openapi.v3.property) = {description: "组织ID"}
+  ];
+  
+  // 根部门ID，如果不提供则返回整个组织的部门树
+  optional uint32 root_department_id = 2 [
+    json_name = "rootDepartmentId",
+    (gnostic.openapi.v3.property) = {description: "根部门ID，如果不提供则返回整个组织的部门树"}
+  ];
+  
+  // 是否包含成员
+  optional bool include_members = 3 [
+    json_name = "includeMembers",
+    (gnostic.openapi.v3.property) = {description: "是否包含成员"}
+  ];
+  
+  // 最大深度
+  optional uint32 max_depth = 4 [
+    json_name = "maxDepth",
+    (gnostic.openapi.v3.property) = {description: "最大深度"}
+  ];
+}
+
+// 获取部门结构树响应
+message GetDepartmentTreeResponse {
+  // 部门节点
+  message DepartmentNode {
+    // 部门ID
+    uint32 id = 1 [
+      json_name = "id",
+      (gnostic.openapi.v3.property) = {description: "部门ID"}
+    ];
+    
+    // 部门名称
+    string name = 2 [
+      json_name = "name",
+      (gnostic.openapi.v3.property) = {description: "部门名称"}
+    ];
+    
+    // 部门代码
+    string code = 3 [
+      json_name = "code",
+      (gnostic.openapi.v3.property) = {description: "部门代码"}
+    ];
+    
+    // 部门类型
+    string type = 4 [
+      json_name = "type",
+      (gnostic.openapi.v3.property) = {description: "部门类型"}
+    ];
+    
+    // 子部门
+    repeated DepartmentNode children = 5 [
+      json_name = "children",
+      (gnostic.openapi.v3.property) = {description: "子部门"}
+    ];
+    
+    // 成员列表
+    repeated DepartmentMember members = 6 [
+      json_name = "members",
+      (gnostic.openapi.v3.property) = {description: "成员列表"}
+    ];
+    
+    // 成员数量
+    uint32 member_count = 7 [
+      json_name = "memberCount",
+      (gnostic.openapi.v3.property) = {description: "成员数量"}
+    ];
+    
+    // 子部门数量
+    uint32 child_count = 8 [
+      json_name = "childCount",
+      (gnostic.openapi.v3.property) = {description: "子部门数量"}
+    ];
+  }
+  
+  // 部门树
+  DepartmentNode tree = 1 [
+    json_name = "tree",
+    (gnostic.openapi.v3.property) = {description: "部门树"}
+  ];
+}
+
+// 移动部门请求
+message MoveDepartmentRequest {
+  // 部门ID
+  uint32 department_id = 1 [
+    json_name = "departmentId",
+    (gnostic.openapi.v3.property) = {description: "部门ID"}
+  ];
+  
+  // 新父部门ID
+  uint32 new_parent_id = 2 [
+    json_name = "newParentId",
+    (gnostic.openapi.v3.property) = {description: "新父部门ID"}
+  ];
+}
+
+// 获取用户所属部门列表请求
+message GetUserDepartmentsRequest {
+  // 用户ID
+  uint32 user_id = 1 [
+    json_name = "userId",
+    (gnostic.openapi.v3.property) = {description: "用户ID"}
+  ];
+  
+  // 组织ID
+  optional uint32 organization_id = 2 [
+    json_name = "organizationId",
+    (gnostic.openapi.v3.property) = {description: "组织ID"}
+  ];
+}
+
+// 获取用户所属部门列表响应
+message GetUserDepartmentsResponse {
+  // 用户所属部门
+  message UserDepartment {
+    // 部门ID
+    uint32 department_id = 1 [
+      json_name = "departmentId",
+      (gnostic.openapi.v3.property) = {description: "部门ID"}
+    ];
+    
+    // 部门名称
+    string department_name = 2 [
+      json_name = "departmentName",
+      (gnostic.openapi.v3.property) = {description: "部门名称"}
+    ];
+    
+    // 部门代码
+    string department_code = 3 [
+      json_name = "departmentCode",
+      (gnostic.openapi.v3.property) = {description: "部门代码"}
+    ];
+    
+    // 组织ID
+    uint32 organization_id = 4 [
+      json_name = "organizationId",
+      (gnostic.openapi.v3.property) = {description: "组织ID"}
+    ];
+    
+    // 组织名称
+    string organization_name = 5 [
+      json_name = "organizationName",
+      (gnostic.openapi.v3.property) = {description: "组织名称"}
+    ];
+    
+    // 成员角色
+    string role = 6 [
+      json_name = "role",
+      (gnostic.openapi.v3.property) = {description: "成员角色"}
+    ];
+    
+    // 职位ID
+    optional uint32 position_id = 7 [
+      json_name = "positionId",
+      (gnostic.openapi.v3.property) = {description: "职位ID"}
+    ];
+    
+    // 职位名称
+    optional string position_name = 8 [
+      json_name = "positionName",
+      (gnostic.openapi.v3.property) = {description: "职位名称"}
+    ];
+    
+    // 加入时间
+    google.protobuf.Timestamp joined_at = 9 [
+      json_name = "joinedAt",
+      (gnostic.openapi.v3.property) = {description: "加入时间"}
+    ];
+  }
+  
+  // 部门列表
+  repeated UserDepartment departments = 1 [
+    json_name = "departments",
+    (gnostic.openapi.v3.property) = {description: "部门列表"}
+  ];
+}
+
+// 导出部门成员请求
+message ExportDepartmentMembersRequest {
+  // 部门ID
+  uint32 department_id = 1 [
+    json_name = "departmentId",
+    (gnostic.openapi.v3.property) = {description: "部门ID"}
+  ];
+  
+  // 导出格式：CSV, EXCEL, JSON
+  string format = 2 [
+    json_name = "format",
+    (gnostic.openapi.v3.property) = {description: "导出格式：CSV, EXCEL, JSON"}
+  ];
+  
+  // 过滤条件
+  optional google.protobuf.Struct filter = 3 [
+    json_name = "filter",
+    (gnostic.openapi.v3.property) = {description: "过滤条件"}
+  ];
+}
+
+// 导出部门成员响应
+message ExportDepartmentMembersResponse {
+  // 数据块
+  bytes data_chunk = 1 [
+    json_name = "dataChunk",
+    (gnostic.openapi.v3.property) = {description: "数据块"}
+  ];
+  
+  // 是否最后一块
+  bool is_last_chunk = 2 [
+    json_name = "isLastChunk",
+    (gnostic.openapi.v3.property) = {description: "是否最后一块"}
+  ];
+}
+
+// 导入部门成员请求
+message ImportDepartmentMembersRequest {
+  // 部门ID
+  uint32 department_id = 1 [
+    json_name = "departmentId",
+    (gnostic.openapi.v3.property) = {description: "部门ID"}
+  ];
+  
+  // 导入格式：CSV, EXCEL, JSON
+  string format = 2 [
+    json_name = "format",
+    (gnostic.openapi.v3.property) = {description: "导入格式：CSV, EXCEL, JSON"}
+  ];
+  
+  // 数据块
+  bytes data_chunk = 3 [
+    json_name = "dataChunk",
+    (gnostic.openapi.v3.property) = {description: "数据块"}
+  ];
+  
+  // 是否最后一块
+  bool is_last_chunk = 4 [
+    json_name = "isLastChunk",
+    (gnostic.openapi.v3.property) = {description: "是否最后一块"}
+  ];
+}
+
+// 导入部门成员响应
+message ImportDepartmentMembersResponse {
+  // 导入结果
+  message ImportResult {
+    // 总记录数
+    uint32 total_count = 1 [
+      json_name = "totalCount",
+      (gnostic.openapi.v3.property) = {description: "总记录数"}
+    ];
+    
+    // 成功记录数
+    uint32 success_count = 2 [
+      json_name = "successCount",
+      (gnostic.openapi.v3.property) = {description: "成功记录数"}
+    ];
+    
+    // 失败记录数
+    uint32 failure_count = 3 [
+      json_name = "failureCount",
+      (gnostic.openapi.v3.property) = {description: "失败记录数"}
+    ];
+    
+    // 错误记录
+    message ErrorRecord {
+      // 行号
+      uint32 row_number = 1 [
+        json_name = "rowNumber",
+        (gnostic.openapi.v3.property) = {description: "行号"}
+      ];
+      
+      // 错误消息
+      string error_message = 2 [
+        json_name = "errorMessage",
+        (gnostic.openapi.v3.property) = {description: "错误消息"}
+      ];
+      
+      // 原始数据
+      string raw_data = 3 [
+        json_name = "rawData",
+        (gnostic.openapi.v3.property) = {description: "原始数据"}
+      ];
+    }
+    
+    // 错误记录列表
+    repeated ErrorRecord error_records = 4 [
+      json_name = "errorRecords",
+      (gnostic.openapi.v3.property) = {description: "错误记录列表"}
+    ];
+  }
+  
+  // 导入结果
+  ImportResult result = 1 [
+    json_name = "result",
+    (gnostic.openapi.v3.property) = {description: "导入结果"}
+  ];
 }

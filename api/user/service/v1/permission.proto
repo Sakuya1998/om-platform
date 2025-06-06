@@ -1,393 +1,1394 @@
 syntax = "proto3";
 
-package api.user.service.v1;
+package user.service.v1;
 
-import "gnostic/openapi/v3/annotations.proto";
+import "google/api/annotations.proto";
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/field_mask.proto";
+import "google/protobuf/struct.proto";
+import "google/protobuf/descriptor.proto";
+import "validate/validate.proto";
+import "api/user/service/v1/common.proto";
+import "api/user/service/v1/error_codes.proto";
 
-import "pkg/utils/pagination/v1/pagination.proto";
-
-option go_package = "om-platform/api/user/service/v1;v1";
+option go_package = "om-platform/api/user/service/v1;userv1";
 option java_multiple_files = true;
 option java_package = "api.user.service.v1";
 
-// 权限服务
+// 权限服务 (PermissionService)
+// 提供权限管理、权限检查和权限分配等功能
 // 错误处理：所有接口在发生错误时将返回ErrorResponse结构，包含统一的错误码、错误消息和详细信息
+// 性能说明：支持高并发访问，关键接口已实现缓存优化
+// 安全说明：所有接口需要认证和授权，详见权限矩阵文档
 service PermissionService {
   // 查询权限列表
-  rpc ListPermission (pkg.utils.pagination.v1.PagingRequest) returns (ListPermissionResponse) {}
+  // 支持按模块、类型等条件筛选
+  // 支持分页和排序
+  // 权限要求：PERMISSION_READ 或 ADMIN
+  // 可能的错误码：PERMISSION_DENIED, INVALID_ARGUMENT
+  rpc ListPermissions (ListPermissionsRequest) returns (ListPermissionsResponse) {
+    option (google.api.http) = {
+      get: "/v1/permissions"
+    };
+    option (cache) = {
+      ttl_seconds: 3600
+      key_pattern: "perms:{category}:{page}:{size}:{filter}"
+    };
+    option (rate_limit) = {
+      requests_per_second: 1000
+      burst: 2000
+    };
+  }
 
-  // 获取权限详情
-  rpc GetPermission (GetPermissionRequest) returns (Permission) {}
-
-  // 创建权限
-  rpc CreatePermission (CreatePermissionRequest) returns (google.protobuf.Empty) {}
-
-  // 更新权限
-  rpc UpdatePermission (UpdatePermissionRequest) returns (google.protobuf.Empty) {}
-
-  // 删除权限
-  rpc DeletePermission (DeletePermissionRequest) returns (google.protobuf.Empty) {}
-
-  // 获取权限树
-  rpc GetPermissionTree (google.protobuf.Empty) returns (PermissionTree) {}
-
-  // 获取权限树节点
-  rpc GetPermissionTreeNode (GetPermissionTreeNodeRequest) returns (PermissionTreeNode) {}
-
-  // 获取权限树节点列表
-  rpc ListPermissionTreeNode (ListPermissionTreeNodeRequest) returns (ListPermissionTreeNodeResponse) {}
-
-  // 批量分配权限
-  rpc BatchAssignPermission (BatchAssignPermissionRequest) returns (google.protobuf.Empty) {}
-  
-  // 批量撤销权限
-  rpc BatchRevokePermission (BatchRevokePermissionRequest) returns (google.protobuf.Empty) {}
-  
-  // 检查权限
-  rpc CheckPermission (CheckPermissionRequest) returns (CheckPermissionResponse) {}
-  
-  // 创建权限模板
-  rpc CreatePermissionTemplate (CreatePermissionTemplateRequest) returns (PermissionTemplate) {}
-  
-  // 应用权限模板
-  rpc ApplyPermissionTemplate (ApplyPermissionTemplateRequest) returns (google.protobuf.Empty) {}
-  
-  // 获取有效权限列表
-  rpc GetEffectivePermissions (GetEffectivePermissionsRequest) returns (GetEffectivePermissionsResponse) {}
-  
-  // 清除权限缓存
-  rpc ClearPermissionCache (ClearPermissionCacheRequest) returns (google.protobuf.Empty) {}
-  
-  // 导出权限配置
-  rpc ExportPermissionConfig (ExportPermissionConfigRequest) returns (ExportPermissionConfigResponse) {}
-  
-  // 导入权限配置
-  rpc ImportPermissionConfig (ImportPermissionConfigRequest) returns (google.protobuf.Empty) {}
-}
-
-// 权限类型
-enum PermissionType {
-  PERMISSION_TYPE_UNSPECIFIED = 0 [
-    (gnostic.openapi.v3.property) = {description: "未指定"}
-  ]; // 未指定
-  PERMISSION_TYPE_MENU = 1 [
-    (gnostic.openapi.v3.property) = {description: "菜单权限"}
-  ]; // 菜单权限
-  PERMISSION_TYPE_OPERATION = 2 [
-    (gnostic.openapi.v3.property) = {description: "操作权限"}
-  ]; // 操作权限
-  PERMISSION_TYPE_API = 3 [
-    (gnostic.openapi.v3.property) = {description: "API权限"}
-  ]; // API权限
-  PERMISSION_TYPE_DATA = 4 [
-    (gnostic.openapi.v3.property) = {description: "数据权限"}
-  ]; // 数据权限
-  PERMISSION_TYPE_FUNCTION = 5 [
-    (gnostic.openapi.v3.property) = {description: "功能权限"}
-  ]; // 功能权限
-  PERMISSION_TYPE_RESOURCE = 6 [
-    (gnostic.openapi.v3.property) = {description: "资源权限"}
-  ]; // 资源权限
-}
-
-// 权限条件表达式
-message PermissionCondition {
-  enum ConditionOperator {
-    CONDITION_OPERATOR_UNSPECIFIED = 0 [
-      (gnostic.openapi.v3.property) = {description: "未指定"}
-    ]; // 未指定
-    CONDITION_OPERATOR_EQUALS = 1 [
-      (gnostic.openapi.v3.property) = {description: "等于"}
-    ]; // 等于
-    CONDITION_OPERATOR_NOT_EQUALS = 2 [
-      (gnostic.openapi.v3.property) = {description: "不等于"}
-    ]; // 不等于
-    CONDITION_OPERATOR_GREATER_THAN = 3 [
-      (gnostic.openapi.v3.property) = {description: "大于"}
-    ]; // 大于
-    CONDITION_OPERATOR_LESS_THAN = 4 [
-      (gnostic.openapi.v3.property) = {description: "小于"}
-    ]; // 小于
-    CONDITION_OPERATOR_IN = 5 [
-      (gnostic.openapi.v3.property) = {description: "在列表中"}
-    ]; // 在列表中
-    CONDITION_OPERATOR_NOT_IN = 6 [
-      (gnostic.openapi.v3.property) = {description: "不在列表中"}
-    ]; // 不在列表中
-    CONDITION_OPERATOR_CONTAINS = 7 [
-      (gnostic.openapi.v3.property) = {description: "包含"}
-    ]; // 包含
-    CONDITION_OPERATOR_STARTS_WITH = 8 [
-      (gnostic.openapi.v3.property) = {description: "以...开始"}
-    ]; // 以...开始
-    CONDITION_OPERATOR_ENDS_WITH = 9 [
-      (gnostic.openapi.v3.property) = {description: "以...结束"}
-    ]; // 以...结束
+  // 查询权限详情
+  // 根据权限ID获取权限详细信息
+  // 权限要求：PERMISSION_READ 或 ADMIN
+  // 可能的错误码：PERMISSION_NOT_FOUND, PERMISSION_DENIED
+  rpc GetPermission (GetPermissionRequest) returns (Permission) {
+    option (google.api.http) = {
+      get: "/v1/permissions/{permission_id}"
+    };
+    option (cache) = {
+      ttl_seconds: 3600
+      key_pattern: "perm:{permission_id}"
+    };
   }
   
-  string field = 1;                // 条件字段
-  ConditionOperator operator = 2;  // 操作符
-  string value = 3;                // 条件值
-  repeated string values = 4;      // 条件值列表(用于IN/NOT_IN操作符)
+  // 创建权限
+  // 创建新权限并返回权限ID
+  // 权限要求：PERMISSION_CREATE 或 ADMIN
+  // 可能的错误码：PERMISSION_ALREADY_EXISTS, PERMISSION_DENIED, INVALID_ARGUMENT
+  rpc CreatePermission (CreatePermissionRequest) returns (CreatePermissionResponse) {
+    option (google.api.http) = {
+      post: "/v1/permissions"
+      body: "*"
+    };
+    option (rate_limit) = {
+      requests_per_second: 50
+      burst: 100
+    };
+  }
+
+  // 更新权限
+  // 更新权限信息，使用FieldMask指定需要更新的字段
+  // 权限要求：PERMISSION_UPDATE 或 ADMIN
+  // 可能的错误码：PERMISSION_NOT_FOUND, PERMISSION_DENIED, INVALID_ARGUMENT
+  rpc UpdatePermission (UpdatePermissionRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      put: "/v1/permissions/{permission_id}"
+      body: "*"
+    };
+    option (rate_limit) = {
+      requests_per_second: 100
+      burst: 200
+    };
+  }
+
+  // 删除权限
+  // 删除指定权限（逻辑删除）
+  // 权限要求：PERMISSION_DELETE 或 ADMIN
+  // 可能的错误码：PERMISSION_NOT_FOUND, PERMISSION_DENIED
+  rpc DeletePermission (DeletePermissionRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      delete: "/v1/permissions/{permission_id}"
+    };
+    option (rate_limit) = {
+      requests_per_second: 50
+      burst: 100
+    };
+  }
+
+  // 批量获取权限信息
+  // 根据权限ID列表批量获取权限信息
+  // 权限要求：PERMISSION_READ 或 ADMIN
+  // 可能的错误码：PERMISSION_DENIED, INVALID_ARGUMENT
+  rpc BatchGetPermissions (BatchGetPermissionsRequest) returns (BatchGetPermissionsResponse) {
+    option (cache) = {
+      cacheable: true
+      ttl_seconds: 60
+      cache_keys: ["ids", "field_mask"]
+    };
+  }
+
+  // 批量创建权限
+  // 批量创建多个权限并返回创建结果
+  // 权限要求：PERMISSION_CREATE 或 ADMIN
+  // 可能的错误码：PERMISSION_ALREADY_EXISTS, PERMISSION_DENIED, INVALID_ARGUMENT
+  rpc BatchCreatePermissions (BatchCreatePermissionsRequest) returns (BatchCreatePermissionsResponse) {}
+
+  // 批量更新权限
+  // 批量更新多个权限信息
+  // 权限要求：PERMISSION_UPDATE 或 ADMIN
+  // 可能的错误码：PERMISSION_NOT_FOUND, PERMISSION_DENIED, INVALID_ARGUMENT
+  rpc BatchUpdatePermissions (BatchUpdatePermissionsRequest) returns (BatchUpdatePermissionsResponse) {}
+
+  // 批量删除权限
+  // 批量删除多个权限（逻辑删除）
+  // 权限要求：PERMISSION_DELETE 或 ADMIN
+  // 可能的错误码：PERMISSION_NOT_FOUND, PERMISSION_DENIED
+  rpc BatchDeletePermissions (BatchDeletePermissionsRequest) returns (BatchDeletePermissionsResponse) {}
+
+  // 获取权限树
+  // 获取权限的层级结构树
+  // 权限要求：PERMISSION_READ 或 ADMIN
+  // 可能的错误码：PERMISSION_DENIED
+  rpc GetPermissionTree (GetPermissionTreeRequest) returns (GetPermissionTreeResponse) {
+    option (cache) = {
+      cacheable: true
+      ttl_seconds: 300
+      cache_keys: ["module", "type", "max_depth"]
+    };
+  }
+
+  // 检查用户权限
+  // 检查用户是否拥有指定权限
+  // 权限要求：PERMISSION_READ 或 ADMIN 或 SELF
+  // 可能的错误码：USER_NOT_FOUND, PERMISSION_NOT_FOUND, PERMISSION_DENIED
+  rpc CheckUserPermission (CheckUserPermissionRequest) returns (CheckUserPermissionResponse) {
+    option (cache) = {
+      cacheable: true
+      ttl_seconds: 60
+      cache_keys: ["user_id", "permission_code", "resource_id"]
+    };
+  }
+
+  // 批量检查用户权限
+  // 批量检查用户是否拥有多个权限
+  // 权限要求：PERMISSION_READ 或 ADMIN 或 SELF
+  // 可能的错误码：USER_NOT_FOUND, PERMISSION_DENIED
+  rpc BatchCheckUserPermissions (BatchCheckUserPermissionsRequest) returns (BatchCheckUserPermissionsResponse) {
+    option (cache) = {
+      cacheable: true
+      ttl_seconds: 60
+      cache_keys: ["user_id", "permission_codes", "resource_id"]
+    };
+  }
+
+  // 获取用户有效权限
+  // 获取用户的所有有效权限（包括角色继承的权限）
+  // 权限要求：PERMISSION_READ 或 ADMIN 或 SELF
+  // 可能的错误码：USER_NOT_FOUND, PERMISSION_DENIED
+  rpc GetUserEffectivePermissions (GetUserEffectivePermissionsRequest) returns (GetUserEffectivePermissionsResponse) {
+    option (cache) = {
+      cacheable: true
+      ttl_seconds: 300
+      cache_keys: ["user_id", "tenant_id", "organization_id", "department_id"]
+    };
+  }
+
+  // 获取资源权限
+  // 获取指定资源的权限配置
+  // 权限要求：PERMISSION_READ 或 ADMIN
+  // 可能的错误码：RESOURCE_NOT_FOUND, PERMISSION_DENIED
+  rpc GetResourcePermissions (GetResourcePermissionsRequest) returns (GetResourcePermissionsResponse) {
+    option (cache) = {
+      cacheable: true
+      ttl_seconds: 300
+      cache_keys: ["resource_type", "resource_id"]
+    };
+  }
+
+  // 更新资源权限
+  // 更新指定资源的权限配置
+  // 权限要求：PERMISSION_MANAGE 或 ADMIN
+  // 可能的错误码：RESOURCE_NOT_FOUND, PERMISSION_DENIED, INVALID_ARGUMENT
+  rpc UpdateResourcePermissions (UpdateResourcePermissionsRequest) returns (google.protobuf.Empty) {}
+
+  // 获取权限审计日志
+  // 获取权限的操作审计日志
+  // 权限要求：AUDIT_READ 或 ADMIN
+  // 可能的错误码：PERMISSION_NOT_FOUND, PERMISSION_DENIED
+  rpc GetPermissionAuditLogs (GetPermissionAuditLogsRequest) returns (GetPermissionAuditLogsResponse) {}
+
+  // 清除权限缓存
+  // 清除指定用户或全局的权限缓存
+  // 权限要求：PERMISSION_CACHE_MANAGE 或 ADMIN
+  // 可能的错误码：PERMISSION_DENIED
+  rpc ClearPermissionCache (ClearPermissionCacheRequest) returns (google.protobuf.Empty) {}
+
+  // 导出权限列表
+  // 导出权限列表
+  // 权限要求：PERMISSION_READ 或 ADMIN
+  // 可能的错误码：PERMISSION_DENIED
+  rpc ExportPermissions (ExportPermissionsRequest) returns (stream ExportPermissionsResponse) {}
+
+  // 导入权限列表
+  // 批量导入权限
+  // 权限要求：PERMISSION_CREATE 或 ADMIN
+  // 可能的错误码：PERMISSION_DENIED, INVALID_ARGUMENT
+  rpc ImportPermissions (stream ImportPermissionsRequest) returns (ImportPermissionsResponse) {}
 }
 
-// 权限继承规则
-enum InheritanceRule {
-  INHERIT_ALL = 0;      // 继承所有权限
-  INHERIT_SPECIFIED = 1; // 继承指定权限
-  NO_INHERITANCE = 2;    // 不继承
+// 权限类型枚举
+enum PermissionType {
+  // 未知类型
+  PERMISSION_TYPE_UNSPECIFIED = 0;
+  // 菜单权限
+  PERMISSION_TYPE_MENU = 1;
+  // 按钮权限
+  PERMISSION_TYPE_BUTTON = 2;
+  // 接口权限
+  PERMISSION_TYPE_API = 3;
+  // 数据权限
+  PERMISSION_TYPE_DATA = 4;
+  // 字段权限
+  PERMISSION_TYPE_FIELD = 5;
+  // 操作权限
+  PERMISSION_TYPE_OPERATION = 6;
+  // 资源权限
+  PERMISSION_TYPE_RESOURCE = 7;
+}
+
+// 权限作用域枚举
+enum PermissionScope {
+  // 未知作用域
+  PERMISSION_SCOPE_UNSPECIFIED = 0;
+  // 全局
+  PERMISSION_SCOPE_GLOBAL = 1;
+  // 租户
+  PERMISSION_SCOPE_TENANT = 2;
+  // 组织
+  PERMISSION_SCOPE_ORGANIZATION = 3;
+  // 部门
+  PERMISSION_SCOPE_DEPARTMENT = 4;
+  // 项目
+  PERMISSION_SCOPE_PROJECT = 5;
+  // 个人
+  PERMISSION_SCOPE_PERSONAL = 6;
 }
 
 // 权限
 message Permission {
-  optional uint32 id = 1 [
+  // 权限ID
+  uint32 id = 1 [
     json_name = "id",
     (gnostic.openapi.v3.property) = {description: "权限ID"}
-  ];  // 权限ID
-
-  optional string name = 2 [json_name = "name", (gnostic.openapi.v3.property) = {description: "权限名称"}];  // 权限名称
-
-  optional string code = 3 [json_name = "code", (gnostic.openapi.v3.property) = {description: "权限编码"}];  // 权限编码
-
-  optional PermissionType type = 4 [json_name = "type", (gnostic.openapi.v3.property) = {description: "权限类型"}];  // 权限类型
+  ];
   
-  optional string resource_identifier = 5 [json_name = "resourceIdentifier", (gnostic.openapi.v3.property) = {description: "资源标识符"}]; // 资源标识符
+  // 权限名称
+  string name = 2 [
+    json_name = "name",
+    (gnostic.openapi.v3.property) = {description: "权限名称"}
+  ];
   
-  optional string action = 6 [json_name = "action", (gnostic.openapi.v3.property) = {description: "操作类型(如:read,write,execute等)"}]; // 操作类型
-
-  optional string status = 7 [(gnostic.openapi.v3.property) = {
-    description: "状态"
-    default: { string: "ON" }
-    enum: [{yaml: "ON"}, {yaml: "OFF"}]
-  }]; // 状态
-
-  optional string remark = 8 [json_name = "remark", (gnostic.openapi.v3.property) = {description: "备注"}];  // 备注
+  // 权限代码
+  string code = 3 [
+    json_name = "code",
+    (gnostic.openapi.v3.property) = {description: "权限代码"}
+  ];
   
-  repeated PermissionCondition conditions = 9 [json_name = "conditions", (gnostic.openapi.v3.property) = {description: "权限条件表达式"}]; // 权限条件表达式
+  // 权限类型
+  PermissionType type = 4 [
+    json_name = "type",
+    (gnostic.openapi.v3.property) = {description: "权限类型"}
+  ];
   
-  optional uint32 priority = 10 [json_name = "priority", (gnostic.openapi.v3.property) = {description: "优先级(数值越大优先级越高)"}]; // 优先级
+  // 权限作用域
+  PermissionScope scope = 5 [
+    json_name = "scope",
+    (gnostic.openapi.v3.property) = {description: "权限作用域"}
+  ];
   
-  optional InheritanceRule inheritance_rule = 11 [json_name = "inheritanceRule", (gnostic.openapi.v3.property) = {description: "继承规则"}]; // 继承规则
+  // 权限描述
+  optional string description = 6 [
+    json_name = "description",
+    (gnostic.openapi.v3.property) = {description: "权限描述"}
+  ];
   
-  optional uint32 ttl = 12 [json_name = "ttl", (gnostic.openapi.v3.property) = {description: "缓存生存时间(秒)"}]; // 缓存生存时间
-
-  optional uint32 create_by = 13 [json_name = "createBy", (gnostic.openapi.v3.property) = {description: "创建者ID"}]; // 创建者ID
-  optional uint32 update_by = 14 [json_name = "updateBy", (gnostic.openapi.v3.property) = {description: "更新者ID"}]; // 更新者ID
-
-  optional uint32 parent_id = 100 [json_name = "parentId", (gnostic.openapi.v3.property) = {description: "父节点ID"}];  // 父节点ID
-  repeated Permission children = 101 [json_name = "children", (gnostic.openapi.v3.property) = {description: "子节点树"}];  // 子节点树
-
-  optional google.protobuf.Timestamp create_time = 200 [json_name = "createTime", (gnostic.openapi.v3.property) = {description: "创建时间"}];// 创建时间
-  optional google.protobuf.Timestamp update_time = 201 [json_name = "updateTime", (gnostic.openapi.v3.property) = {description: "更新时间"}];// 更新时间
-  optional google.protobuf.Timestamp delete_time = 202 [json_name = "deleteTime", (gnostic.openapi.v3.property) = {description: "删除时间"}];// 删除时间
-  optional google.protobuf.Timestamp expire_time = 203 [json_name = "expireTime", (gnostic.openapi.v3.property) = {description: "过期时间"}];// 过期时间
+  // 模块
+  string module = 7 [
+    json_name = "module",
+    (gnostic.openapi.v3.property) = {description: "模块"}
+  ];
+  
+  // 资源类型
+  optional string resource_type = 8 [
+    json_name = "resourceType",
+    (gnostic.openapi.v3.property) = {description: "资源类型"}
+  ];
+  
+  // 操作类型
+  optional string action = 9 [
+    json_name = "action",
+    (gnostic.openapi.v3.property) = {description: "操作类型"}
+  ];
+  
+  // 权限状态：ACTIVE, INACTIVE
+  string status = 10 [
+    json_name = "status",
+    (gnostic.openapi.v3.property) = {description: "权限状态：ACTIVE, INACTIVE"}
+  ];
+  
+  // 是否系统内置
+  bool is_system = 11 [
+    json_name = "isSystem",
+    (gnostic.openapi.v3.property) = {description: "是否系统内置"}
+  ];
+  
+  // 父权限ID
+  optional uint32 parent_id = 12 [
+    json_name = "parentId",
+    (gnostic.openapi.v3.property) = {description: "父权限ID"}
+  ];
+  
+  // 权限路径
+  optional string path = 13 [
+    json_name = "path",
+    (gnostic.openapi.v3.property) = {description: "权限路径"}
+  ];
+  
+  // 权限图标
+  optional string icon = 14 [
+    json_name = "icon",
+    (gnostic.openapi.v3.property) = {description: "权限图标"}
+  ];
+  
+  // 权限排序
+  optional int32 sort_order = 15 [
+    json_name = "sortOrder",
+    (gnostic.openapi.v3.property) = {description: "权限排序"}
+  ];
+  
+  // 权限标签
+  repeated string tags = 16 [
+    json_name = "tags",
+    (gnostic.openapi.v3.property) = {description: "权限标签"}
+  ];
+  
+  // 权限元数据
+  optional google.protobuf.Struct metadata = 17 [
+    json_name = "metadata",
+    (gnostic.openapi.v3.property) = {description: "权限元数据"}
+  ];
+  
+  // 权限创建时间
+  google.protobuf.Timestamp created_at = 18 [
+    json_name = "createdAt",
+    (gnostic.openapi.v3.property) = {description: "权限创建时间"}
+  ];
+  
+  // 权限更新时间
+  google.protobuf.Timestamp updated_at = 19 [
+    json_name = "updatedAt",
+    (gnostic.openapi.v3.property) = {description: "权限更新时间"}
+  ];
+  
+  // 审计信息
+  optional AuditInfo audit_info = 20 [
+    json_name = "auditInfo",
+    (gnostic.openapi.v3.property) = {description: "审计信息"}
+  ];
+  
+  // 扩展字段
+  optional google.protobuf.Struct extensions = 21 [
+    json_name = "extensions",
+    (gnostic.openapi.v3.property) = {description: "扩展字段"}
+  ];
 }
 
-// 权限树
-message PermissionTree {
-  repeated PermissionTreeNode nodes = 1;
+// 资源权限
+message ResourcePermission {
+  // 资源类型
+  string resource_type = 1 [
+    json_name = "resourceType",
+    (gnostic.openapi.v3.property) = {description: "资源类型"}
+  ];
+  
+  // 资源ID
+  string resource_id = 2 [
+    json_name = "resourceId",
+    (gnostic.openapi.v3.property) = {description: "资源ID"}
+  ];
+  
+  // 主体类型：USER, ROLE
+  string subject_type = 3 [
+    json_name = "subjectType",
+    (gnostic.openapi.v3.property) = {description: "主体类型：USER, ROLE"}
+  ];
+  
+  // 主体ID
+  uint32 subject_id = 4 [
+    json_name = "subjectId",
+    (gnostic.openapi.v3.property) = {description: "主体ID"}
+  ];
+  
+  // 权限代码
+  string permission_code = 5 [
+    json_name = "permissionCode",
+    (gnostic.openapi.v3.property) = {description: "权限代码"}
+  ];
+  
+  // 是否允许
+  bool allow = 6 [
+    json_name = "allow",
+    (gnostic.openapi.v3.property) = {description: "是否允许"}
+  ];
+  
+  // 生效时间
+  optional google.protobuf.Timestamp effective_time = 7 [
+    json_name = "effectiveTime",
+    (gnostic.openapi.v3.property) = {description: "生效时间"}
+  ];
+  
+  // 过期时间
+  optional google.protobuf.Timestamp expiry_time = 8 [
+    json_name = "expiryTime",
+    (gnostic.openapi.v3.property) = {description: "过期时间"}
+  ];
+  
+  // 条件表达式
+  optional string condition = 9 [
+    json_name = "condition",
+    (gnostic.openapi.v3.property) = {description: "条件表达式"}
+  ];
+  
+  // 创建时间
+  google.protobuf.Timestamp created_at = 10 [
+    json_name = "createdAt",
+    (gnostic.openapi.v3.property) = {description: "创建时间"}
+  ];
+  
+  // 更新时间
+  google.protobuf.Timestamp updated_at = 11 [
+    json_name = "updatedAt",
+    (gnostic.openapi.v3.property) = {description: "更新时间"}
+  ];
 }
 
-// 权限树节点
-message PermissionTreeNode {
-  uint32 id = 1;
-  string name = 2;
-  string code = 3;
-  PermissionType type = 4;
-  uint32 parent_id = 5;
-  repeated PermissionTreeNode children = 6;
+// 查询权限列表请求
+message ListPermissionsRequest {
+  // 模块
+  optional string module = 1 [
+    json_name = "module",
+    (gnostic.openapi.v3.property) = {description: "模块"}
+  ];
+  
+  // 权限类型
+  optional PermissionType type = 2 [
+    json_name = "type",
+    (gnostic.openapi.v3.property) = {description: "权限类型"}
+  ];
+  
+  // 权限作用域
+  optional PermissionScope scope = 3 [
+    json_name = "scope",
+    (gnostic.openapi.v3.property) = {description: "权限作用域"}
+  ];
+  
+  // 父权限ID
+  optional uint32 parent_id = 4 [
+    json_name = "parentId",
+    (gnostic.openapi.v3.property) = {description: "父权限ID"}
+  ];
+  
+  // 分页参数
+  uint32 page = 5 [
+    json_name = "page",
+    (gnostic.openapi.v3.property) = {description: "页码，从1开始"}
+  ];
+  
+  uint32 page_size = 6 [
+    json_name = "pageSize",
+    (gnostic.openapi.v3.property) = {description: "每页记录数"}
+  ];
+  
+  // 过滤条件
+  optional google.protobuf.Struct filter = 7 [
+    json_name = "filter",
+    (gnostic.openapi.v3.property) = {description: "过滤条件"}
+  ];
+  
+  // 排序选项
+  repeated SortOption sort = 8 [
+    json_name = "sort",
+    (gnostic.openapi.v3.property) = {description: "排序选项"}
+  ];
+  
+  // 字段掩码
+  optional google.protobuf.FieldMask field_mask = 9 [
+    json_name = "fieldMask",
+    (gnostic.openapi.v3.property) = {description: "字段掩码"}
+  ];
 }
 
-// 权限列表 - 答复
-message ListPermissionResponse {
-  repeated Permission items = 1;
-  uint32 total = 2;
+// 查询权限列表响应
+message ListPermissionsResponse {
+  // 分页信息
+  PaginatedResponse pagination = 1 [
+    json_name = "pagination",
+    (gnostic.openapi.v3.property) = {description: "分页信息"}
+  ];
+  
+  // 权限列表
+  repeated Permission permissions = 2 [
+    json_name = "permissions",
+    (gnostic.openapi.v3.property) = {description: "权限列表"}
+  ];
 }
 
-// 权限数据 - 请求
+// 查询权限详情请求
 message GetPermissionRequest {
-  uint32 id = 1;
+  // 权限ID
+  uint32 id = 1 [
+    json_name = "id",
+    (gnostic.openapi.v3.property) = {description: "权限ID"}
+  ];
+  
+  // 字段掩码
+  optional google.protobuf.FieldMask field_mask = 2 [
+    json_name = "fieldMask",
+    (gnostic.openapi.v3.property) = {description: "字段掩码"}
+  ];
 }
 
-// 创建权限 - 请求
+// 创建权限请求
 message CreatePermissionRequest {
-  optional uint32 operator_id = 1 [
-    (gnostic.openapi.v3.property) = {description: "操作用户ID", read_only: true},
-    json_name = "operatorId"
-  ]; // 操作用户ID
-
-  Permission data = 2;
+  // 权限信息
+  Permission permission = 1 [
+    json_name = "permission",
+    (gnostic.openapi.v3.property) = {description: "权限信息"}
+  ];
 }
 
-// 更新权限 - 请求
+// 创建权限响应
+message CreatePermissionResponse {
+  // 权限ID
+  uint32 id = 1 [
+    json_name = "id",
+    (gnostic.openapi.v3.property) = {description: "权限ID"}
+  ];
+}
+
+// 更新权限请求
 message UpdatePermissionRequest {
-  optional uint32 operator_id = 1 [
-    (gnostic.openapi.v3.property) = {description: "操作用户ID", read_only: true},
-    json_name = "operatorId"
-  ]; // 操作用户ID
-
-  Permission data = 2;
-
-  google.protobuf.FieldMask update_mask = 3 [
-    (gnostic.openapi.v3.property) = {
-      description: "要更新的字段列表",
-      example: {yaml : "id,name,code"}
-    },
-    json_name = "updateMask"
-  ]; // 要更新的字段列表
-
-  optional bool allow_missing = 4 [
-    (gnostic.openapi.v3.property) = {description: "如果设置为true的时候，资源不存在则会新增(插入)，并且在这种情况下`updateMask`字段将会被忽略。"},
-    json_name = "allowMissing"
-  ]; // 如果设置为true的时候，资源不存在则会新增(插入)，并且在这种情况下`updateMask`字段将会被忽略。
+  // 权限信息
+  Permission permission = 1 [
+    json_name = "permission",
+    (gnostic.openapi.v3.property) = {description: "权限信息"}
+  ];
+  
+  // 更新掩码
+  google.protobuf.FieldMask update_mask = 2 [
+    json_name = "updateMask",
+    (gnostic.openapi.v3.property) = {description: "更新掩码"}
+  ];
 }
 
-// 删除权限 - 请求
+// 删除权限请求
 message DeletePermissionRequest {
-  optional uint32 operator_id = 1 [
-    (gnostic.openapi.v3.property) = {description: "操作用户ID", read_only: true},
-    json_name = "operatorId"
-  ]; // 操作用户ID
-
-  uint32 id = 2;
+  // 权限ID
+  uint32 id = 1 [
+    json_name = "id",
+    (gnostic.openapi.v3.property) = {description: "权限ID"}
+  ];
 }
 
-// 获取权限树节点 - 请求
-message GetPermissionTreeNodeRequest {
-  uint32 id = 1;
-}
-
-// 获取权限树节点列表 - 请求
-message ListPermissionTreeNodeRequest {
-  optional uint32 parent_id = 1 [json_name = "parentId"];
-}
-
-// 获取权限树节点列表 - 响应
-message ListPermissionTreeNodeResponse {
-  repeated PermissionTreeNode items = 1;
-}
-
-// 批量分配权限 - 请求
-message BatchAssignPermissionRequest {
-  optional uint32 operator_id = 1 [
-    (gnostic.openapi.v3.property) = {description: "操作用户ID", read_only: true},
-    json_name = "operatorId"
-  ]; // 操作用户ID
-
-  repeated uint32 permission_ids = 2 [json_name = "permissionIds"];
-  repeated uint32 role_ids = 3 [json_name = "roleIds"];
-}
-
-// 批量撤销权限 - 请求
-message BatchRevokePermissionRequest {
-  optional uint32 operator_id = 1 [
-    (gnostic.openapi.v3.property) = {description: "操作用户ID", read_only: true},
-    json_name = "operatorId"
-  ]; // 操作用户ID
-
-  repeated uint32 permission_ids = 2 [json_name = "permissionIds"];
-  repeated uint32 role_ids = 3 [json_name = "roleIds"];
-}
-
-// 检查权限 - 请求
-message CheckPermissionRequest {
-  uint32 user_id = 1 [json_name = "userId"];
-  string resource_identifier = 2 [json_name = "resourceIdentifier"];
-  string action = 3;
-  map<string, string> context = 4; // 上下文信息，用于条件表达式求值
-}
-
-// 检查权限 - 响应
-message CheckPermissionResponse {
-  bool has_permission = 1 [json_name = "hasPermission"];
-  string deny_reason = 2 [json_name = "denyReason"];
-  uint32 matched_permission_id = 3 [json_name = "matchedPermissionId"];
-}
-
-// 权限模板
-message PermissionTemplate {
-  uint32 id = 1;
-  string name = 2;
-  string description = 3;
-  repeated Permission permissions = 4;
-  optional uint32 create_by = 5 [json_name = "createBy"];
-  optional google.protobuf.Timestamp create_time = 6 [json_name = "createTime"];
-  optional google.protobuf.Timestamp update_time = 7 [json_name = "updateTime"];
-}
-
-// 创建权限模板 - 请求
-message CreatePermissionTemplateRequest {
-  optional uint32 operator_id = 1 [
-    (gnostic.openapi.v3.property) = {description: "操作用户ID", read_only: true},
-    json_name = "operatorId"
-  ]; // 操作用户ID
+// 批量获取权限请求
+message BatchGetPermissionsRequest {
+  // 权限ID列表
+  repeated uint32 ids = 1 [
+    json_name = "ids",
+    (gnostic.openapi.v3.property) = {description: "权限ID列表"}
+  ];
   
-  string name = 2;
-  string description = 3;
-  repeated uint32 permission_ids = 4 [json_name = "permissionIds"];
+  // 字段掩码
+  optional google.protobuf.FieldMask field_mask = 2 [
+    json_name = "fieldMask",
+    (gnostic.openapi.v3.property) = {description: "字段掩码"}
+  ];
 }
 
-// 应用权限模板 - 请求
-message ApplyPermissionTemplateRequest {
-  optional uint32 operator_id = 1 [
-    (gnostic.openapi.v3.property) = {description: "操作用户ID", read_only: true},
-    json_name = "operatorId"
-  ]; // 操作用户ID
+// 批量获取权限响应
+message BatchGetPermissionsResponse {
+  // 权限列表
+  repeated Permission permissions = 1 [
+    json_name = "permissions",
+    (gnostic.openapi.v3.property) = {description: "权限列表"}
+  ];
   
-  uint32 template_id = 2 [json_name = "templateId"];
-  repeated uint32 role_ids = 3 [json_name = "roleIds"];
-  bool override_existing = 4 [json_name = "overrideExisting"]; // 是否覆盖现有权限
+  // 未找到的权限ID列表
+  repeated uint32 not_found_ids = 2 [
+    json_name = "notFoundIds",
+    (gnostic.openapi.v3.property) = {description: "未找到的权限ID列表"}
+  ];
 }
 
-// 获取有效权限列表 - 请求
-message GetEffectivePermissionsRequest {
-  uint32 user_id = 1 [json_name = "userId"];
-  optional string resource_type = 2 [json_name = "resourceType"]; // 可选，按资源类型过滤
+// 批量创建权限请求
+message BatchCreatePermissionsRequest {
+  // 权限列表
+  repeated Permission permissions = 1 [
+    json_name = "permissions",
+    (gnostic.openapi.v3.property) = {description: "权限列表"}
+  ];
 }
 
-// 获取有效权限列表 - 响应
-message GetEffectivePermissionsResponse {
-  repeated Permission permissions = 1;
-  map<string, bool> permission_map = 2 [json_name = "permissionMap"]; // 权限编码到布尔值的映射，方便客户端快速查询
+// 批量创建权限响应
+message BatchCreatePermissionsResponse {
+  // 批量操作结果
+  BatchOperationResult result = 1 [
+    json_name = "result",
+    (gnostic.openapi.v3.property) = {description: "批量操作结果"}
+  ];
+  
+  // 创建成功的权限ID列表
+  repeated uint32 created_ids = 2 [
+    json_name = "createdIds",
+    (gnostic.openapi.v3.property) = {description: "创建成功的权限ID列表"}
+  ];
 }
 
-// 清除权限缓存 - 请求
+// 批量更新权限请求
+message BatchUpdatePermissionsRequest {
+  // 权限列表
+  repeated Permission permissions = 1 [
+    json_name = "permissions",
+    (gnostic.openapi.v3.property) = {description: "权限列表"}
+  ];
+  
+  // 更新掩码
+  google.protobuf.FieldMask update_mask = 2 [
+    json_name = "updateMask",
+    (gnostic.openapi.v3.property) = {description: "更新掩码"}
+  ];
+  
+  // 是否跳过不存在的权限
+  optional bool skip_not_found = 3 [
+    json_name = "skipNotFound",
+    (gnostic.openapi.v3.property) = {description: "是否跳过不存在的权限"}
+  ];
+}
+
+// 批量更新权限响应
+message BatchUpdatePermissionsResponse {
+  // 批量操作结果
+  BatchOperationResult result = 1 [
+    json_name = "result",
+    (gnostic.openapi.v3.property) = {description: "批量操作结果"}
+  ];
+}
+
+// 批量删除权限请求
+message BatchDeletePermissionsRequest {
+  // 权限ID列表
+  repeated uint32 ids = 1 [
+    json_name = "ids",
+    (gnostic.openapi.v3.property) = {description: "权限ID列表"}
+  ];
+  
+  // 是否跳过不存在的权限
+  optional bool skip_not_found = 2 [
+    json_name = "skipNotFound",
+    (gnostic.openapi.v3.property) = {description: "是否跳过不存在的权限"}
+  ];
+}
+
+// 批量删除权限响应
+message BatchDeletePermissionsResponse {
+  // 批量操作结果
+  BatchOperationResult result = 1 [
+    json_name = "result",
+    (gnostic.openapi.v3.property) = {description: "批量操作结果"}
+  ];
+}
+
+// 获取权限树请求
+message GetPermissionTreeRequest {
+  // 模块
+  optional string module = 1 [
+    json_name = "module",
+    (gnostic.openapi.v3.property) = {description: "模块"}
+  ];
+  
+  // 权限类型
+  optional PermissionType type = 2 [
+    json_name = "type",
+    (gnostic.openapi.v3.property) = {description: "权限类型"}
+  ];
+  
+  // 权限作用域
+  optional PermissionScope scope = 3 [
+    json_name = "scope",
+    (gnostic.openapi.v3.property) = {description: "权限作用域"}
+  ];
+  
+  // 最大深度
+  optional uint32 max_depth = 4 [
+    json_name = "maxDepth",
+    (gnostic.openapi.v3.property) = {description: "最大深度"}
+  ];
+}
+
+// 获取权限树响应
+message GetPermissionTreeResponse {
+  // 权限节点
+  message PermissionNode {
+    // 权限ID
+    uint32 id = 1 [
+      json_name = "id",
+      (gnostic.openapi.v3.property) = {description: "权限ID"}
+    ];
+    
+    // 权限名称
+    string name = 2 [
+      json_name = "name",
+      (gnostic.openapi.v3.property) = {description: "权限名称"}
+    ];
+    
+    // 权限代码
+    string code = 3 [
+      json_name = "code",
+      (gnostic.openapi.v3.property) = {description: "权限代码"}
+    ];
+    
+    // 权限类型
+    PermissionType type = 4 [
+      json_name = "type",
+      (gnostic.openapi.v3.property) = {description: "权限类型"}
+    ];
+    
+    // 权限作用域
+    PermissionScope scope = 5 [
+      json_name = "scope",
+      (gnostic.openapi.v3.property) = {description: "权限作用域"}
+    ];
+    
+    // 权限路径
+    optional string path = 6 [
+      json_name = "path",
+      (gnostic.openapi.v3.property) = {description: "权限路径"}
+    ];
+    
+    // 权限图标
+    optional string icon = 7 [
+      json_name = "icon",
+      (gnostic.openapi.v3.property) = {description: "权限图标"}
+    ];
+    
+    // 权限排序
+    optional int32 sort_order = 8 [
+      json_name = "sortOrder",
+      (gnostic.openapi.v3.property) = {description: "权限排序"}
+    ];
+    
+    // 子权限
+    repeated PermissionNode children = 9 [
+      json_name = "children",
+      (gnostic.openapi.v3.property) = {description: "子权限"}
+    ];
+  }
+  
+  // 权限树
+  repeated PermissionNode permissions = 1 [
+    json_name = "permissions",
+    (gnostic.openapi.v3.property) = {description: "权限树"}
+  ];
+}
+
+// 检查用户权限请求
+message CheckUserPermissionRequest {
+  // 用户ID
+  uint32 user_id = 1 [
+    json_name = "userId",
+    (gnostic.openapi.v3.property) = {description: "用户ID"}
+  ];
+  
+  // 权限代码
+  string permission_code = 2 [
+    json_name = "permissionCode",
+    (gnostic.openapi.v3.property) = {description: "权限代码"}
+  ];
+  
+  // 资源类型
+  optional string resource_type = 3 [
+    json_name = "resourceType",
+    (gnostic.openapi.v3.property) = {description: "资源类型"}
+  ];
+  
+  // 资源ID
+  optional string resource_id = 4 [
+    json_name = "resourceId",
+    (gnostic.openapi.v3.property) = {description: "资源ID"}
+  ];
+  
+  // 租户ID
+  optional uint32 tenant_id = 5 [
+    json_name = "tenantId",
+    (gnostic.openapi.v3.property) = {description: "租户ID"}
+  ];
+  
+  // 组织ID
+  optional uint32 organization_id = 6 [
+    json_name = "organizationId",
+    (gnostic.openapi.v3.property) = {description: "组织ID"}
+  ];
+  
+  // 部门ID
+  optional uint32 department_id = 7 [
+    json_name = "departmentId",
+    (gnostic.openapi.v3.property) = {description: "部门ID"}
+  ];
+  
+  // 上下文信息
+  optional google.protobuf.Struct context = 8 [
+    json_name = "context",
+    (gnostic.openapi.v3.property) = {description: "上下文信息"}
+  ];
+}
+
+// 检查用户权限响应
+message CheckUserPermissionResponse {
+  // 是否有权限
+  bool has_permission = 1 [
+    json_name = "hasPermission",
+    (gnostic.openapi.v3.property) = {description: "是否有权限"}
+  ];
+  
+  // 权限来源：DIRECT, ROLE, INHERITED
+  string source = 2 [
+    json_name = "source",
+    (gnostic.openapi.v3.property) = {description: "权限来源：DIRECT, ROLE, INHERITED"}
+  ];
+  
+  // 权限详情
+  optional string details = 3 [
+    json_name = "details",
+    (gnostic.openapi.v3.property) = {description: "权限详情"}
+  ];
+}
+
+// 批量检查用户权限请求
+message BatchCheckUserPermissionsRequest {
+  // 用户ID
+  uint32 user_id = 1 [
+    json_name = "userId",
+    (gnostic.openapi.v3.property) = {description: "用户ID"}
+  ];
+  
+  // 权限代码列表
+  repeated string permission_codes = 2 [
+    json_name = "permissionCodes",
+    (gnostic.openapi.v3.property) = {description: "权限代码列表"}
+  ];
+  
+  // 资源类型
+  optional string resource_type = 3 [
+    json_name = "resourceType",
+    (gnostic.openapi.v3.property) = {description: "资源类型"}
+  ];
+  
+  // 资源ID
+  optional string resource_id = 4 [
+    json_name = "resourceId",
+    (gnostic.openapi.v3.property) = {description: "资源ID"}
+  ];
+  
+  // 租户ID
+  optional uint32 tenant_id = 5 [
+    json_name = "tenantId",
+    (gnostic.openapi.v3.property) = {description: "租户ID"}
+  ];
+  
+  // 组织ID
+  optional uint32 organization_id = 6 [
+    json_name = "organizationId",
+    (gnostic.openapi.v3.property) = {description: "组织ID"}
+  ];
+  
+  // 部门ID
+  optional uint32 department_id = 7 [
+    json_name = "departmentId",
+    (gnostic.openapi.v3.property) = {description: "部门ID"}
+  ];
+  
+  // 上下文信息
+  optional google.protobuf.Struct context = 8 [
+    json_name = "context",
+    (gnostic.openapi.v3.property) = {description: "上下文信息"}
+  ];
+}
+
+// 批量检查用户权限响应
+message BatchCheckUserPermissionsResponse {
+  // 权限检查结果
+  message PermissionCheckResult {
+    // 权限代码
+    string permission_code = 1 [
+      json_name = "permissionCode",
+      (gnostic.openapi.v3.property) = {description: "权限代码"}
+    ];
+    
+    // 是否有权限
+    bool has_permission = 2 [
+      json_name = "hasPermission",
+      (gnostic.openapi.v3.property) = {description: "是否有权限"}
+    ];
+    
+    // 权限来源：DIRECT, ROLE, INHERITED
+    string source = 3 [
+      json_name = "source",
+      (gnostic.openapi.v3.property) = {description: "权限来源：DIRECT, ROLE, INHERITED"}
+    ];
+    
+    // 权限详情
+    optional string details = 4 [
+      json_name = "details",
+      (gnostic.openapi.v3.property) = {description: "权限详情"}
+    ];
+  }
+  
+  // 权限检查结果列表
+  repeated PermissionCheckResult results = 1 [
+    json_name = "results",
+    (gnostic.openapi.v3.property) = {description: "权限检查结果列表"}
+  ];
+}
+
+// 获取用户有效权限请求
+message GetUserEffectivePermissionsRequest {
+  // 用户ID
+  uint32 user_id = 1 [
+    json_name = "userId",
+    (gnostic.openapi.v3.property) = {description: "用户ID"}
+  ];
+  
+  // 租户ID
+  optional uint32 tenant_id = 2 [
+    json_name = "tenantId",
+    (gnostic.openapi.v3.property) = {description: "租户ID"}
+  ];
+  
+  // 组织ID
+  optional uint32 organization_id = 3 [
+    json_name = "organizationId",
+    (gnostic.openapi.v3.property) = {description: "组织ID"}
+  ];
+  
+  // 部门ID
+  optional uint32 department_id = 4 [
+    json_name = "departmentId",
+    (gnostic.openapi.v3.property) = {description: "部门ID"}
+  ];
+  
+  // 模块
+  optional string module = 5 [
+    json_name = "module",
+    (gnostic.openapi.v3.property) = {description: "模块"}
+  ];
+  
+  // 权限类型
+  optional PermissionType type = 6 [
+    json_name = "type",
+    (gnostic.openapi.v3.property) = {description: "权限类型"}
+  ];
+  
+  // 权限作用域
+  optional PermissionScope scope = 7 [
+    json_name = "scope",
+    (gnostic.openapi.v3.property) = {description: "权限作用域"}
+  ];
+}
+
+// 获取用户有效权限响应
+message GetUserEffectivePermissionsResponse {
+  // 有效权限
+  message EffectivePermission {
+    // 权限ID
+    uint32 id = 1 [
+      json_name = "id",
+      (gnostic.openapi.v3.property) = {description: "权限ID"}
+    ];
+    
+    // 权限名称
+    string name = 2 [
+      json_name = "name",
+      (gnostic.openapi.v3.property) = {description: "权限名称"}
+    ];
+    
+    // 权限代码
+    string code = 3 [
+      json_name = "code",
+      (gnostic.openapi.v3.property) = {description: "权限代码"}
+    ];
+    
+    // 权限类型
+    PermissionType type = 4 [
+      json_name = "type",
+      (gnostic.openapi.v3.property) = {description: "权限类型"}
+    ];
+    
+    // 权限作用域
+    PermissionScope scope = 5 [
+      json_name = "scope",
+      (gnostic.openapi.v3.property) = {description: "权限作用域"}
+    ];
+    
+    // 模块
+    string module = 6 [
+      json_name = "module",
+      (gnostic.openapi.v3.property) = {description: "模块"}
+    ];
+    
+    // 权限来源：DIRECT, ROLE
+    string source = 7 [
+      json_name = "source",
+      (gnostic.openapi.v3.property) = {description: "权限来源：DIRECT, ROLE"}
+    ];
+    
+    // 来源ID（角色ID或用户ID）
+    uint32 source_id = 8 [
+      json_name = "sourceId",
+      (gnostic.openapi.v3.property) = {description: "来源ID（角色ID或用户ID）"}
+    ];
+    
+    // 来源名称
+    string source_name = 9 [
+      json_name = "sourceName",
+      (gnostic.openapi.v3.property) = {description: "来源名称"}
+    ];
+  }
+  
+  // 有效权限列表
+  repeated EffectivePermission permissions = 1 [
+    json_name = "permissions",
+    (gnostic.openapi.v3.property) = {description: "有效权限列表"}
+  ];
+}
+
+// 获取资源权限请求
+message GetResourcePermissionsRequest {
+  // 资源类型
+  string resource_type = 1 [
+    json_name = "resourceType",
+    (gnostic.openapi.v3.property) = {description: "资源类型"}
+  ];
+  
+  // 资源ID
+  string resource_id = 2 [
+    json_name = "resourceId",
+    (gnostic.openapi.v3.property) = {description: "资源ID"}
+  ];
+}
+
+// 获取资源权限响应
+message GetResourcePermissionsResponse {
+  // 资源权限列表
+  repeated ResourcePermission permissions = 1 [
+    json_name = "permissions",
+    (gnostic.openapi.v3.property) = {description: "资源权限列表"}
+  ];
+}
+
+// 更新资源权限请求
+message UpdateResourcePermissionsRequest {
+  // 资源类型
+  string resource_type = 1 [
+    json_name = "resourceType",
+    (gnostic.openapi.v3.property) = {description: "资源类型"}
+  ];
+  
+  // 资源ID
+  string resource_id = 2 [
+    json_name = "resourceId",
+    (gnostic.openapi.v3.property) = {description: "资源ID"}
+  ];
+  
+  // 资源权限列表
+  repeated ResourcePermission permissions = 3 [
+    json_name = "permissions",
+    (gnostic.openapi.v3.property) = {description: "资源权限列表"}
+  ];
+  
+  // 操作类型：ADD, REMOVE, REPLACE
+  string operation = 4 [
+    json_name = "operation",
+    (gnostic.openapi.v3.property) = {description: "操作类型：ADD, REMOVE, REPLACE"}
+  ];
+}
+
+// 获取权限审计日志请求
+message GetPermissionAuditLogsRequest {
+  // 权限ID
+  optional uint32 permission_id = 1 [
+    json_name = "permissionId",
+    (gnostic.openapi.v3.property) = {description: "权限ID"}
+  ];
+  
+  // 用户ID
+  optional uint32 user_id = 2 [
+    json_name = "userId",
+    (gnostic.openapi.v3.property) = {description: "用户ID"}
+  ];
+  
+  // 资源类型
+  optional string resource_type = 3 [
+    json_name = "resourceType",
+    (gnostic.openapi.v3.property) = {description: "资源类型"}
+  ];
+  
+  // 资源ID
+  optional string resource_id = 4 [
+    json_name = "resourceId",
+    (gnostic.openapi.v3.property) = {description: "资源ID"}
+  ];
+  
+  // 开始时间
+  optional google.protobuf.Timestamp start_time = 5 [
+    json_name = "startTime",
+    (gnostic.openapi.v3.property) = {description: "开始时间"}
+  ];
+  
+  // 结束时间
+  optional google.protobuf.Timestamp end_time = 6 [
+    json_name = "endTime",
+    (gnostic.openapi.v3.property) = {description: "结束时间"}
+  ];
+  
+  // 操作类型
+  optional string operation_type = 7 [
+    json_name = "operationType",
+    (gnostic.openapi.v3.property) = {description: "操作类型"}
+  ];
+  
+  // 操作者ID
+  optional uint32 operator_id = 8 [
+    json_name = "operatorId",
+    (gnostic.openapi.v3.property) = {description: "操作者ID"}
+  ];
+  
+  // 分页参数
+  uint32 page = 9 [
+    json_name = "page",
+    (gnostic.openapi.v3.property) = {description: "页码，从1开始"}
+  ];
+  
+  uint32 page_size = 10 [
+    json_name = "pageSize",
+    (gnostic.openapi.v3.property) = {description: "每页记录数"}
+  ];
+}
+
+// 获取权限审计日志响应
+message GetPermissionAuditLogsResponse {
+  // 分页信息
+  PaginatedResponse pagination = 1 [
+    json_name = "pagination",
+    (gnostic.openapi.v3.property) = {description: "分页信息"}
+  ];
+  
+  // 审计日志
+  message AuditLogEntry {
+    // 日志ID
+    string id = 1 [
+      json_name = "id",
+      (gnostic.openapi.v3.property) = {description: "日志ID"}
+    ];
+    
+    // 权限ID
+    optional uint32 permission_id = 2 [
+      json_name = "permissionId",
+      (gnostic.openapi.v3.property) = {description: "权限ID"}
+    ];
+    
+    // 用户ID
+    optional uint32 user_id = 3 [
+      json_name = "userId",
+      (gnostic.openapi.v3.property) = {description: "用户ID"}
+    ];
+    
+    // 资源类型
+    optional string resource_type = 4 [
+      json_name = "resourceType",
+      (gnostic.openapi.v3.property) = {description: "资源类型"}
+    ];
+    
+    // 资源ID
+    optional string resource_id = 5 [
+      json_name = "resourceId",
+      (gnostic.openapi.v3.property) = {description: "资源ID"}
+    ];
+    
+    // 操作类型
+    string operation_type = 6 [
+      json_name = "operationType",
+      (gnostic.openapi.v3.property) = {description: "操作类型"}
+    ];
+    
+    // 操作时间
+    google.protobuf.Timestamp operation_time = 7 [
+      json_name = "operationTime",
+      (gnostic.openapi.v3.property) = {description: "操作时间"}
+    ];
+    
+    // 操作者ID
+    uint32 operator_id = 8 [
+      json_name = "operatorId",
+      (gnostic.openapi.v3.property) = {description: "操作者ID"}
+    ];
+    
+    // 操作者名称
+    string operator_name = 9 [
+      json_name = "operatorName",
+      (gnostic.openapi.v3.property) = {description: "操作者名称"}
+    ];
+    
+    // 操作IP
+    string ip_address = 10 [
+      json_name = "ipAddress",
+      (gnostic.openapi.v3.property) = {description: "操作IP"}
+    ];
+    
+    // 操作详情
+    google.protobuf.Struct details = 11 [
+      json_name = "details",
+      (gnostic.openapi.v3.property) = {description: "操作详情"}
+    ];
+  }
+  
+  // 审计日志列表
+  repeated AuditLogEntry logs = 2 [
+    json_name = "logs",
+    (gnostic.openapi.v3.property) = {description: "审计日志列表"}
+  ];
+}
+
+// 清除权限缓存请求
 message ClearPermissionCacheRequest {
-  optional uint32 operator_id = 1 [
-    (gnostic.openapi.v3.property) = {description: "操作用户ID", read_only: true},
-    json_name = "operatorId"
-  ]; // 操作用户ID
+  // 用户ID（可选，不指定则清除全局缓存）
+  optional uint32 user_id = 1 [
+    json_name = "userId",
+    (gnostic.openapi.v3.property) = {description: "用户ID（可选，不指定则清除全局缓存）"}
+  ];
   
-  optional uint32 user_id = 2 [json_name = "userId"]; // 指定用户ID，为空则清除所有用户的权限缓存
-  optional uint32 role_id = 3 [json_name = "roleId"]; // 指定角色ID，为空则不按角色过滤
+  // 缓存类型：USER_PERMISSIONS, ROLE_PERMISSIONS, RESOURCE_PERMISSIONS, ALL
+  string cache_type = 2 [
+    json_name = "cacheType",
+    (gnostic.openapi.v3.property) = {description: "缓存类型：USER_PERMISSIONS, ROLE_PERMISSIONS, RESOURCE_PERMISSIONS, ALL"}
+  ];
 }
 
-// 导出权限配置 - 请求
-message ExportPermissionConfigRequest {
-  optional uint32 operator_id = 1 [
-    (gnostic.openapi.v3.property) = {description: "操作用户ID", read_only: true},
-    json_name = "operatorId"
-  ]; // 操作用户ID
+// 导出权限列表请求
+message ExportPermissionsRequest {
+  // 导出格式：CSV, EXCEL, JSON
+  string format = 1 [
+    json_name = "format",
+    (gnostic.openapi.v3.property) = {description: "导出格式：CSV, EXCEL, JSON"}
+  ];
   
-  repeated uint32 permission_ids = 2 [json_name = "permissionIds"]; // 为空则导出所有权限
-  bool include_templates = 3 [json_name = "includeTemplates"]; // 是否包含权限模板
+  // 过滤条件
+  optional google.protobuf.Struct filter = 2 [
+    json_name = "filter",
+    (gnostic.openapi.v3.property) = {description: "过滤条件"}
+  ];
+  
+  // 模块
+  optional string module = 3 [
+    json_name = "module",
+    (gnostic.openapi.v3.property) = {description: "模块"}
+  ];
+  
+  // 权限类型
+  optional PermissionType type = 4 [
+    json_name = "type",
+    (gnostic.openapi.v3.property) = {description: "权限类型"}
+  ];
+  
+  // 权限作用域
+  optional PermissionScope scope = 5 [
+    json_name = "scope",
+    (gnostic.openapi.v3.property) = {description: "权限作用域"}
+  ];
 }
 
-// 导出权限配置 - 响应
-message ExportPermissionConfigResponse {
-  string config_data = 1 [json_name = "configData"]; // JSON格式的配置数据
+// 导出权限列表响应
+message ExportPermissionsResponse {
+  // 数据块
+  bytes data_chunk = 1 [
+    json_name = "dataChunk",
+    (gnostic.openapi.v3.property) = {description: "数据块"}
+  ];
+  
+  // 是否最后一块
+  bool is_last_chunk = 2 [
+    json_name = "isLastChunk",
+    (gnostic.openapi.v3.property) = {description: "是否最后一块"}
+  ];
 }
 
-// 导入权限配置 - 请求
-message ImportPermissionConfigRequest {
-  optional uint32 operator_id = 1 [
-    (gnostic.openapi.v3.property) = {description: "操作用户ID", read_only: true},
-    json_name = "operatorId"
-  ]; // 操作用户ID
+// 导入权限列表请求
+message ImportPermissionsRequest {
+  // 导入格式：CSV, EXCEL, JSON
+  string format = 1 [
+    json_name = "format",
+    (gnostic.openapi.v3.property) = {description: "导入格式：CSV, EXCEL, JSON"}
+  ];
   
-  string config_data = 2 [json_name = "configData"]; // JSON格式的配置数据
-  bool override_existing = 3 [json_name = "overrideExisting"]; // 是否覆盖现有配置
+  // 数据块
+  bytes data_chunk = 2 [
+    json_name = "dataChunk",
+    (gnostic.openapi.v3.property) = {description: "数据块"}
+  ];
+  
+  // 是否最后一块
+  bool is_last_chunk = 3 [
+    json_name = "isLastChunk",
+    (gnostic.openapi.v3.property) = {description: "是否最后一块"}
+  ];
+}
+
+// 导入权限列表响应
+message ImportPermissionsResponse {
+  // 导入结果
+  message ImportResult {
+    // 总记录数
+    uint32 total_count = 1 [
+      json_name = "totalCount",
+      (gnostic.openapi.v3.property) = {description: "总记录数"}
+    ];
+    
+    // 成功记录数
+    uint32 success_count = 2 [
+      json_name = "successCount",
+      (gnostic.openapi.v3.property) = {description: "成功记录数"}
+    ];
+    
+    // 失败记录数
+    uint32 failure_count = 3 [
+      json_name = "failureCount",
+      (gnostic.openapi.v3.property) = {description: "失败记录数"}
+    ];
+    
+    // 错误记录
+    message ErrorRecord {
+      // 行号
+      uint32 row_number = 1 [
+        json_name = "rowNumber",
+        (gnostic.openapi.v3.property) = {description: "行号"}
+      ];
+      
+      // 错误消息
+      string error_message = 2 [
+        json_name = "errorMessage",
+        (gnostic.openapi.v3.property) = {description: "错误消息"}
+      ];
+      
+      // 原始数据
+      string raw_data = 3 [
+        json_name = "rawData",
+        (gnostic.openapi.v3.property) = {description: "原始数据"}
+      ];
+    }
+    
+    // 错误记录列表
+    repeated ErrorRecord error_records = 4 [
+      json_name = "errorRecords",
+      (gnostic.openapi.v3.property) = {description: "错误记录列表"}
+    ];
+  }
+  
+  // 导入结果
+  ImportResult result = 1 [
+    json_name = "result",
+    (gnostic.openapi.v3.property) = {description: "导入结果"}
+  ];
 }

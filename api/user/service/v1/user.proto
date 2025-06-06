@@ -1,528 +1,1323 @@
 syntax = "proto3";
 
-package api.user.service.v1;
+package user.service.v1;
 
-//import "google/api/annotations.proto";
-
+import "google/api/annotations.proto";
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
-import "google/api/field_behavior.proto";
 import "google/protobuf/field_mask.proto";
-import "gnostic/openapi/v3/annotations.proto";
-
-import "pkg/utils/pagination/v1/pagination.proto";
-import "api/user/service/v1/permission.proto"; 
-import "api/user/service/v1/role.proto";       
-import "api/user/service/v1/operation_log.proto";
+import "google/protobuf/struct.proto";
+import "google/protobuf/descriptor.proto";
+import "validate/validate.proto";
 import "api/user/service/v1/common.proto";
-import "api/user/service/v1/account.proto"; 
-option go_package = "om-platform/api/user/service/v1;v1";
+import "api/user/service/v1/error_codes.proto";
+
+option go_package = "om-platform/api/user/service/v1;userv1";
 option java_multiple_files = true;
 option java_package = "api.user.service.v1";
 
 // 用户服务 (UserService)
 // 专注于用户基本信息管理功能，包括用户CRUD操作、用户角色分配和权限管理
-// 注意：账户状态管理功能已迁移至AccountService，密码管理功能已迁移至AuthService
 // 错误处理：所有接口在发生错误时将返回ErrorResponse结构，包含统一的错误码、错误消息和详细信息
+// 性能说明：支持高并发访问，关键接口已实现缓存优化
+// 安全说明：所有接口需要认证和授权，详见权限矩阵文档
 service UserService {
   // 查询用户列表
-  rpc ListUser (pkg.utils.pagination.v1.PagingRequest) returns (ListUserResponse) {}
+  // 支持按用户名、邮箱、状态等条件筛选
+  // 支持分页和排序
+  // 权限要求：USER_READ 或 ADMIN
+  // 可能的错误码：PERMISSION_DENIED, INVALID_ARGUMENT
+  // 示例请求:
+  // {
+  //   "page": 1,
+  //   "pageSize": 10,
+  //   "sort": [{"field": "createTime", "direction": "DESC"}],
+  //   "filter": {"status": "ACTIVE", "department_id": 42}
+  // }
+  rpc ListUsers (ListUsersRequest) returns (ListUsersResponse) {
+    option (google.api.http) = {
+      get: "/v1/users"
+    };
+    option (rate_limit) = {
+      requests_per_second: 100
+      burst: 200
+    };
+    option (cache) = {
+      ttl_seconds: 60
+      key_pattern: "users:list:{page}:{size}"
+    };
+  }
 
   // 查询用户详情
-  rpc GetUser (GetUserRequest) returns (User) {}
+  // 根据用户ID获取用户详细信息
+  // 权限要求：USER_READ 或 ADMIN 或 SELF
+  // 可能的错误码：USER_NOT_FOUND, PERMISSION_DENIED
+  // 示例请求: {"id": 123, "field_mask": {"paths": ["basic_info", "contact_info"]}}
+  rpc GetUser (GetUserRequest) returns (User) {
+    option (google.api.http) = {
+      get: "/v1/users/{user_id}"
+    }
+    option (cache) = {
+      ttl_seconds: 300
+      key_pattern: "user:{user_id}"
+    }
+  }
   
+  // 根据用户名获取用户详情
+  // 权限要求：USER_READ 或 ADMIN
+  // 可能的错误码：USER_NOT_FOUND, PERMISSION_DENIED
+  rpc GetUserByUsername (GetUserByUsernameRequest) returns (User) {
+    option (google.api.http) = {
+      get: "/v1/users/by-username/{username}"
+    };
+    option (cache) = {
+      ttl_seconds: 300
+      key_pattern: "user:username:{username}"
+    };
+  }
+  
+  // 批量获取用户信息
   // 根据用户ID列表批量获取用户信息
-  rpc BatchGetUsersByIds (BatchGetUsersByIdsRequest) returns (BatchGetUsersByIdsResponse) {}
+  // 权限要求：USER_READ 或 ADMIN
+  // 可能的错误码：PERMISSION_DENIED, INVALID_ARGUMENT
+  rpc BatchGetUsers (BatchGetUsersRequest) returns (BatchGetUsersResponse) {
+    option (google.api.http) = {
+      post: "/v1/users/by-ids"
+      body: "*"
+    };
+    option (cache) = {
+      ttl_seconds: 60
+      key_pattern: "users:batch:{ids_hash}"
+    };
+  }
 
   // 创建用户
-  // 返回CreateUserResponse而不是Empty，以便提供新创建的用户ID
-  rpc CreateUser (CreateUserRequest) returns (CreateUserResponse) {}
+  // 创建新用户并返回用户ID
+  // 权限要求：USER_CREATE 或 ADMIN
+  // 可能的错误码：USER_ALREADY_EXISTS, PERMISSION_DENIED, INVALID_ARGUMENT
+  // 示例请求:
+  // {
+  //   "user": {
+  //     "username": "john.doe",
+  //     "email": "john.doe@example.com",
+  //     "real_name": "John Doe",
+  //     "department_id": 42
+  //   }
+  // }
+  rpc CreateUser (CreateUserRequest) returns (CreateUserResponse) {
+    option (google.api.http) = {
+      post: "/v1/users"
+      body: "*"
+    }
+    option (rate_limit) = {
+      requests_per_second: 50
+      burst: 100
+    }
+  }
+
+  // 批量创建用户
+  // 批量创建多个用户并返回创建结果
+  // 权限要求：USER_CREATE 或 ADMIN
+  // 可能的错误码：USER_ALREADY_EXISTS, PERMISSION_DENIED, INVALID_ARGUMENT
+  rpc BatchCreateUsers (BatchCreateUsersRequest) returns (BatchCreateUsersResponse) {
+    option (google.api.http) = {
+      post: "/v1/users/batch"
+      body: "*"
+    }
+    option (rate_limit) = {
+      requests_per_second: 10
+      burst: 20
+    }
+  }
 
   // 更新用户
-// 使用FieldMask明确指定需要更新的字段，提高API灵活性和安全性
-rpc UpdateUser (UpdateUserRequest) returns (google.protobuf.Empty) {}
+  // 更新用户信息，使用FieldMask指定需要更新的字段
+  // 权限要求：USER_UPDATE 或 ADMIN 或 SELF(部分字段)
+  // 可能的错误码：USER_NOT_FOUND, PERMISSION_DENIED, INVALID_ARGUMENT
+  // 示例请求:
+  // {
+  //   "user": {
+  //     "id": 123,
+  //     "email": "new.email@example.com",
+  //     "mobile": "1234567890"
+  //   },
+  //   "update_mask": {"paths": ["email", "mobile"]}
+  // }
+  rpc UpdateUser (UpdateUserRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      put: "/v1/users/{user_id}"
+      body: "*"
+    }
+    option (rate_limit) = {
+      requests_per_second: 100
+      burst: 200
+    }
+  }
+
+  // 批量更新用户
+  // 批量更新多个用户信息
+  // 权限要求：USER_UPDATE 或 ADMIN
+  // 可能的错误码：USER_NOT_FOUND, PERMISSION_DENIED, INVALID_ARGUMENT
+  rpc BatchUpdateUsers (BatchUpdateUsersRequest) returns (BatchUpdateUsersResponse) {
+    option (google.api.http) = {
+      put: "/v1/users/batch"
+      body: "*"
+    }
+    option (rate_limit) = {
+      requests_per_second: 10
+      burst: 20
+    }
+  }
 
   // 删除用户
-  rpc DeleteUser (DeleteUserRequest) returns (google.protobuf.Empty) {}
+  // 删除指定用户（逻辑删除）
+  // 权限要求：USER_DELETE 或 ADMIN
+  // 可能的错误码：USER_NOT_FOUND, PERMISSION_DENIED
+  // 示例请求: {"id": 123}
+  rpc DeleteUser (DeleteUserRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      delete: "/v1/users/{user_id}"
+    }
+    option (rate_limit) = {
+      requests_per_second: 50
+      burst: 100
+    }
+  }
 
-  // 查询用户详情
-  rpc GetUserByUserName (GetUserByUserNameRequest) returns (User) {}
+  // 批量删除用户
+  // 批量删除多个用户（逻辑删除）
+  // 权限要求：USER_DELETE 或 ADMIN
+  // 可能的错误码：USER_NOT_FOUND, PERMISSION_DENIED
+  rpc BatchDeleteUsers (BatchDeleteUsersRequest) returns (BatchDeleteUsersResponse) {
+    option (google.api.http) = {
+      delete: "/v1/users/batch"
+      body: "*"
+    }
+    option (rate_limit) = {
+      requests_per_second: 10
+      burst: 20
+    }
+  }
 
-  // 验证密码
-  // 注意：此方法仅验证密码正确性，不处理账户状态变更
-  // 账户锁定、密码过期等高级账户状态管理请使用AccountService
-  rpc VerifyPassword (VerifyPasswordRequest) returns (VerifyPasswordResponse) {}
-
-  // 用户是否存在
-  rpc UserExists (UserExistsRequest) returns (UserExistsResponse) {}
+  // 检查用户是否存在
+  // 根据用户名、邮箱或手机号检查用户是否存在
+  // 权限要求：USER_READ 或 ADMIN 或 匿名访问(注册流程)
+  // 可能的错误码：INVALID_ARGUMENT
+  rpc CheckUserExists (CheckUserExistsRequest) returns (CheckUserExistsResponse) {
+    option (google.api.http) = {
+      get: "/v1/users/exists"
+    };
+    option (rate_limit) = {
+      requests_per_second: 50
+      burst: 100
+    };
+  }
   
   // 获取用户角色列表
-  rpc GetUserRoles (GetUserRolesRequest) returns (GetUserRolesResponse) {}
+  // 获取指定用户的所有角色
+  // 权限要求：ROLE_READ 或 ADMIN 或 SELF
+  // 可能的错误码：USER_NOT_FOUND, PERMISSION_DENIED
+  rpc GetUserRoles (GetUserRolesRequest) returns (GetUserRolesResponse) {
+    option (google.api.http) = {
+      get: "/v1/users/{user_id}/roles"
+    };
+    option (cache) = {
+      ttl_seconds: 300
+      key_pattern: "user:{user_id}:roles"
+    };
+  }
   
   // 分配用户角色
-  rpc AssignUserRoles (AssignUserRolesRequest) returns (google.protobuf.Empty) {}
+  // 为用户分配一个或多个角色
+  // 权限要求：ROLE_ASSIGN 或 ADMIN
+  // 可能的错误码：USER_NOT_FOUND, ROLE_NOT_FOUND, PERMISSION_DENIED
+  rpc AssignUserRoles (AssignUserRolesRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post: "/v1/users/{user_id}/roles"
+      body: "*"
+    }
+    option (rate_limit) = {
+      requests_per_second: 100
+      burst: 200
+    }
+  }
   
   // 撤销用户角色
-  rpc RevokeUserRoles (RevokeUserRolesRequest) returns (google.protobuf.Empty) {}
-  
-  // 密码管理功能已迁移至AuthService
-  // 请使用AuthService中的ChangePassword和ResetPassword方法
+  // 撤销用户的一个或多个角色
+  // 权限要求：ROLE_ASSIGN 或 ADMIN
+  // 可能的错误码：USER_NOT_FOUND, ROLE_NOT_FOUND, PERMISSION_DENIED
+  rpc RevokeUserRoles (RevokeUserRolesRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      delete: "/v1/users/{user_id}/roles"
+      body: "*"
+    };
+    option (rate_limit) = {
+      requests_per_second: 100
+      burst: 200
+    };
+  }
   
   // 获取用户有效权限
-  rpc GetUserEffectivePermissions (GetUserEffectivePermissionsRequest) returns (GetUserEffectivePermissionsResponse) {}
+  // 获取用户的所有有效权限，包括直接分配和通过角色继承的权限
+  // 权限要求：PERMISSION_READ 或 ADMIN 或 SELF
+  // 可能的错误码：USER_NOT_FOUND, PERMISSION_DENIED
+  rpc GetUserEffectivePermissions (GetUserEffectivePermissionsRequest) returns (GetUserEffectivePermissionsResponse) {
+    option (google.api.http) = {
+      get: "/v1/users/{user_id}/permissions"
+    };
+    option (cache) = {
+      ttl_seconds: 300
+      key_pattern: "user:{user_id}:permissions"
+    };
+  }
   
   // 检查用户权限
-  rpc CheckUserPermission (CheckUserPermissionRequest) returns (CheckUserPermissionResponse) {}
+  // 检查用户是否拥有指定权限
+  // 权限要求：PERMISSION_READ 或 ADMIN 或 SELF
+  // 可能的错误码：USER_NOT_FOUND, PERMISSION_NOT_FOUND, PERMISSION_DENIED
+  rpc CheckUserPermission (CheckUserPermissionRequest) returns (CheckUserPermissionResponse) {
+    option (google.api.http) = {
+      get: "/v1/users/{user_id}/permissions/{permission_code}"
+    };
+    option (cache) = {
+      ttl_seconds: 60
+      key_pattern: "user:{user_id}:permission:{permission_code}"
+    };
+  }
   
   // 清除用户权限缓存
+  // 清除指定用户的权限缓存，强制下次权限检查重新加载
+  // 权限要求：PERMISSION_MANAGE 或 ADMIN
+  // 可能的错误码：USER_NOT_FOUND, PERMISSION_DENIED
   rpc ClearUserPermissionCache (ClearUserPermissionCacheRequest) returns (google.protobuf.Empty) {}
   
   // 获取用户动态角色
+  // 获取用户基于条件表达式动态计算的角色
+  // 权限要求：ROLE_READ 或 ADMIN 或 SELF
+  // 可能的错误码：USER_NOT_FOUND, PERMISSION_DENIED
   rpc GetUserDynamicRoles (GetUserDynamicRolesRequest) returns (GetUserDynamicRolesResponse) {}
   
   // 获取用户权限审计日志
+  // 获取用户权限变更的审计日志
+  // 权限要求：AUDIT_READ 或 ADMIN
+  // 可能的错误码：USER_NOT_FOUND, PERMISSION_DENIED
   rpc GetUserPermissionAuditLogs (GetUserPermissionAuditLogsRequest) returns (GetUserPermissionAuditLogsResponse) {}
   
-  // 注意：账户状态管理功能已迁移至AccountService
-  // 请使用AccountService中的相关方法
+  // 流式获取用户列表
+  // 适用于导出大量用户数据等场景
+  // 权限要求：USER_READ 或 ADMIN
+  // 可能的错误码：PERMISSION_DENIED, INVALID_ARGUMENT
+  rpc StreamUsers (StreamUsersRequest) returns (stream User) {}
+  
+  // 流式导出用户数据
+  // 导出用户数据为指定格式
+  // 权限要求：USER_EXPORT 或 ADMIN
+  // 可能的错误码：PERMISSION_DENIED, INVALID_ARGUMENT
+  rpc ExportUsers (ExportUsersRequest) returns (stream ExportUsersResponse) {}
+  
+  // 流式导入用户数据
+  // 从指定格式导入用户数据
+  // 权限要求：USER_IMPORT 或 ADMIN
+  // 可能的错误码：PERMISSION_DENIED, INVALID_ARGUMENT
+  rpc ImportUsers (stream ImportUsersRequest) returns (ImportUsersResponse) {}
 }
-
-// 验证密码结果码
-enum VerifyPasswordResult {
-  VERIFY_PASSWORD_RESULT_UNSPECIFIED = 0; // 未指定
-  VERIFY_PASSWORD_RESULT_SUCCESS = 1;     // 验证成功
-  VERIFY_PASSWORD_RESULT_NOT_EXISTS = 2;  // 账号不存在
-  VERIFY_PASSWORD_RESULT_WRONG = 3;       // 密码错误
-  VERIFY_PASSWORD_RESULT_LOCKED = 4;      // 账户已锁定
-  VERIFY_PASSWORD_RESULT_DELETED = 5;     // 账户已删除
-  VERIFY_PASSWORD_RESULT_DISABLED = 6;    // 账户已禁用
-  VERIFY_PASSWORD_RESULT_EXPIRED = 7;     // 密码已过期
-}
-
-// 注意：用户权限(UserAuthority)和用户性别(UserGender)枚举已迁移至common.proto
-// 请使用common.proto中的定义
-
-// 用户状态管理说明：
-// 1. 基础用户状态(UserAccountStatus)定义在common.proto中
-// 2. 详细账户状态(AccountStatus)定义在account.proto中
-// 3. 状态管理职责划分：
-//    - UserService: 仅引用账户状态，不存储也不负责状态变更
-//    - AccountService: 负责所有账户状态的存储和变更操作
 
 // 用户
 message User {
+  // 用户ID
   optional uint32 id = 1 [
     json_name = "id",
     (gnostic.openapi.v3.property) = {description: "用户ID"}
-  ];  // 用户ID
+  ];
 
-  repeated uint32 role_ids = 2 [json_name = "roleIds", (gnostic.openapi.v3.property) = {description: "角色ID列表"}];  // 角色ID列表
-  optional uint32 work_id = 3 [json_name = "workId", (gnostic.openapi.v3.property) = {description: "工号"}];  // 工号
-  optional uint32 org_id = 4 [json_name = "orgId", (gnostic.openapi.v3.property) = {description: "部门ID"}];  // 部门ID
-  optional uint32 position_id = 5 [json_name = "positionId", (gnostic.openapi.v3.property) = {description: "岗位ID"}];  // 岗位ID
-  optional uint32 permission_cache_ttl = 6 [json_name = "permissionCacheTtl", (gnostic.openapi.v3.property) = {description: "权限缓存生存时间(秒)"}]; // 权限缓存生存时间
-  optional uint32 tenant_id = 9 [json_name = "tenantId", (gnostic.openapi.v3.property) = {description: "租户ID"}];  // 租户ID
+  // 角色ID列表
+  repeated uint32 role_ids = 2 [
+    json_name = "roleIds", 
+    (gnostic.openapi.v3.property) = {description: "角色ID列表"}
+  ];
+  
+  // 工号
+  optional string work_id = 3 [
+    json_name = "workId", 
+    (gnostic.openapi.v3.property) = {description: "工号"}
+  ];
+  
+  // 部门ID
+  optional uint32 department_id = 4 [
+    json_name = "departmentId", 
+    (gnostic.openapi.v3.property) = {description: "部门ID"}
+  ];
+  
+  // 岗位ID
+  optional uint32 position_id = 5 [
+    json_name = "positionId", 
+    (gnostic.openapi.v3.property) = {description: "岗位ID"}
+  ];
+  
+  // 权限缓存生存时间(秒)
+  optional uint32 permission_cache_ttl = 6 [
+    json_name = "permissionCacheTtl", 
+    (gnostic.openapi.v3.property) = {description: "权限缓存生存时间(秒)"}
+  ];
+  
+  // 租户ID
+  optional uint32 tenant_id = 7 [
+    json_name = "tenantId", 
+    (gnostic.openapi.v3.property) = {description: "租户ID"}
+  ];
 
-  optional uint32 create_by = 7 [json_name = "createBy", (gnostic.openapi.v3.property) = {description: "创建者ID"}]; // 创建者ID
-  optional uint32 update_by = 8 [json_name = "updateBy", (gnostic.openapi.v3.property) = {description: "更新者ID"}]; // 更新者ID
-
-  optional string user_name = 10 [
-    json_name = "userName",
+  // 登录名
+  optional string username = 8 [
+    json_name = "username",
     (gnostic.openapi.v3.property) = {description: "登录名"}
-  ]; // 登录名
+  ];
 
-  optional string nick_name = 11 [
+  // 昵称
+  optional string nick_name = 9 [
     json_name = "nickName",
     (gnostic.openapi.v3.property) = {description: "昵称"}
-  ]; // 昵称
+  ];
 
-  optional string real_name = 12 [
+  // 真实姓名
+  optional string real_name = 10 [
     json_name = "realName",
     (gnostic.openapi.v3.property) = {description: "真实姓名"}
-  ]; // 真实姓名
+  ];
 
-  optional string avatar = 13 [
+  // 头像
+  optional string avatar = 11 [
     json_name = "avatar",
     (gnostic.openapi.v3.property) = {description: "头像"}
-  ]; // 头像
+  ];
 
-  optional string email = 14 [
+  // 邮箱
+  optional string email = 12 [
     json_name = "email",
     (gnostic.openapi.v3.property) = {description: "邮箱"}
-  ]; // 邮箱
+  ];
 
-  optional string mobile = 15 [
+  // 手机号
+  optional string mobile = 13 [
     json_name = "mobile",
     (gnostic.openapi.v3.property) = {description: "手机号"}
-  ]; // 手机号
+  ];
 
-  optional string telephone = 16 [
+  // 座机号
+  optional string telephone = 14 [
     json_name = "telephone",
     (gnostic.openapi.v3.property) = {description: "座机号"}
-  ]; // 手机号
+  ];
 
-  optional api.user.service.v1.UserGender gender = 17 [
+  // 性别
+  optional UserGender gender = 15 [
     json_name = "gender",
     (gnostic.openapi.v3.property) = {description: "性别"}
-  ]; // 性别
+  ];
 
-  optional string address = 18 [
+  // 住址
+  optional string address = 16 [
     json_name = "address",
     (gnostic.openapi.v3.property) = {description: "住址"}
-  ]; // 住址
+  ];
 
-  optional string region = 19 [
+  // 国家地区
+  optional string region = 17 [
     json_name = "region",
     (gnostic.openapi.v3.property) = {description: "国家地区"}
-  ]; // 国家地区
+  ];
 
-  optional string description = 20 [
+  // 个人描述
+  optional string description = 18 [
     json_name = "description",
     (gnostic.openapi.v3.property) = {description: "个人描述"}
-  ]; // 个人描述
+  ];
 
-  optional string remark = 21 [
+  // 备注名
+  optional string remark = 19 [
     json_name = "remark",
     (gnostic.openapi.v3.property) = {description: "备注名"}
-  ]; // 备注名
+  ];
 
-  optional int64 last_login_time = 30 [
+  // 最后登录时间
+  optional int64 last_login_time = 20 [
     json_name = "lastLoginTime",
     (gnostic.openapi.v3.property) = {description: "最后登录时间"}
-  ]; // 最后登录时间
+  ];
 
-  optional string last_login_ip = 31 [
+  // 最后登录IP
+  optional string last_login_ip = 21 [
     json_name = "lastLoginIp",
     (gnostic.openapi.v3.property) = {description: "最后登录IP"}
-  ]; // 最后登录IP
+  ];
 
-  // 用户状态引用 - 不直接存储状态，仅引用AccountService中的状态
-  // 状态的实际存储和管理由AccountService负责
-  optional api.user.service.v1.UserAccountStatus account_status_ref = 32 [
-    json_name = "accountStatusRef",
-    (gnostic.openapi.v3.property) = {
-      description: "账户状态引用（只读）"
-      read_only: true
-    }
-  ]; // 账户状态引用（只读）
-
-  optional api.user.service.v1.UserAuthority authority = 33 [(gnostic.openapi.v3.property) = {
-    description: "权限"
-    default: {string: "USER_AUTHORITY_USER"}
-  }]; // 权限
-
-  repeated string roles = 34 [(gnostic.openapi.v3.property) = {
-    description: "角色码"
-  }]; // 角色码
+  // 账户状态
+  optional UserAccountStatus status = 22 [
+    json_name = "status",
+    (gnostic.openapi.v3.property) = {description: "账户状态"}
+  ];
   
-  map<string, string> metadata = 40 [
-    json_name = "metadata",
-    (gnostic.openapi.v3.property) = {description: "用户相关元数据"}
-  ]; // 用户相关元数据
-
-  optional google.protobuf.Timestamp create_time = 200 [json_name = "createTime", (gnostic.openapi.v3.property) = {description: "创建时间"}];// 创建时间
-  optional google.protobuf.Timestamp update_time = 201 [json_name = "updateTime", (gnostic.openapi.v3.property) = {description: "更新时间"}];// 更新时间
-  optional google.protobuf.Timestamp delete_time = 202 [json_name = "deleteTime", (gnostic.openapi.v3.property) = {description: "删除时间"}];// 删除时间
+  // 权限级别
+  optional UserAuthority authority = 23 [
+    json_name = "authority",
+    (gnostic.openapi.v3.property) = {description: "权限级别"}
+  ];
+  
+  // 审计信息
+  optional AuditInfo audit_info = 24 [
+    json_name = "auditInfo",
+    (gnostic.openapi.v3.property) = {description: "审计信息"}
+  ];
+  
+  // 扩展字段，用于未来功能扩展
+  optional google.protobuf.Struct extensions = 1000 [
+    json_name = "extensions",
+    (gnostic.openapi.v3.property) = {description: "扩展字段，用于未来功能扩展"}
+  ];
 }
 
-// 获取用户列表 - 响应
-message ListUserResponse {
-  repeated User items = 1 [json_name = "items", (gnostic.openapi.v3.property) = {description: "用户列表"}];
-  uint32 total = 2 [json_name = "total", (gnostic.openapi.v3.property) = {description: "总记录数"}];
+// 查询用户列表请求
+message ListUsersRequest {
+  // 分页参数
+  uint32 page = 1 [
+    json_name = "page",
+    (gnostic.openapi.v3.property) = {description: "页码，从1开始"}
+  ];
+  
+  uint32 page_size = 2 [
+    json_name = "pageSize",
+    (gnostic.openapi.v3.property) = {description: "每页记录数"}
+  ];
+  
+  // 排序选项
+  repeated SortOption sort = 3 [
+    json_name = "sort",
+    (gnostic.openapi.v3.property) = {description: "排序选项"}
+  ];
+  
+  // 过滤条件
+  google.protobuf.Struct filter = 4 [
+    json_name = "filter",
+    (gnostic.openapi.v3.property) = {description: "过滤条件，JSON格式"}
+  ];
+  
+  // 字段掩码，指定需要返回的字段
+  google.protobuf.FieldMask field_mask = 5 [
+    json_name = "fieldMask",
+    (gnostic.openapi.v3.property) = {description: "字段掩码，指定需要返回的字段"}
+  ];
+  
+  // 租户ID
+  optional uint32 tenant_id = 6 [
+    json_name = "tenantId",
+    (gnostic.openapi.v3.property) = {description: "租户ID"}
+  ];
 }
 
-// 获取用户数据 - 请求
+// 查询用户列表响应
+message ListUsersResponse {
+  // 分页信息
+  PaginatedResponse pagination = 1 [
+    json_name = "pagination",
+    (gnostic.openapi.v3.property) = {description: "分页信息"}
+  ];
+  
+  // 用户列表
+  repeated User users = 2 [
+    json_name = "users",
+    (gnostic.openapi.v3.property) = {description: "用户列表"}
+  ];
+}
+
+// 获取用户详情请求
 message GetUserRequest {
-  uint32 id = 1 [json_name = "id", (gnostic.openapi.v3.property) = {description: "用户ID"}];
+  // 用户ID
+  uint32 id = 1 [
+    json_name = "id",
+    (gnostic.openapi.v3.property) = {description: "用户ID"}
+  ];
+  
+  // 字段掩码，指定需要返回的字段
+  google.protobuf.FieldMask field_mask = 2 [
+    json_name = "fieldMask",
+    (gnostic.openapi.v3.property) = {description: "字段掩码，指定需要返回的字段"}
+  ];
 }
 
-// 批量获取用户信息 - 请求
-message BatchGetUsersByIdsRequest {
-  repeated uint32 user_ids = 1 [
-    (gnostic.openapi.v3.property) = {description: "用户ID列表"},
-    json_name = "userIds"
-  ]; // 用户ID列表
+// 根据用户名获取用户详情请求
+message GetUserByUsernameRequest {
+  // 用户名
+  string username = 1 [
+    json_name = "username",
+    (gnostic.openapi.v3.property) = {description: "用户名"}
+  ];
+  
+  // 字段掩码，指定需要返回的字段
+  google.protobuf.FieldMask field_mask = 2 [
+    json_name = "fieldMask",
+    (gnostic.openapi.v3.property) = {description: "字段掩码，指定需要返回的字段"}
+  ];
 }
 
-// 批量获取用户信息 - 响应
-message BatchGetUsersByIdsResponse {
+// 批量获取用户信息请求
+message BatchGetUsersRequest {
+  // 用户ID列表
+  repeated uint32 ids = 1 [
+    json_name = "ids",
+    (gnostic.openapi.v3.property) = {description: "用户ID列表"}
+  ];
+  
+  // 字段掩码，指定需要返回的字段
+  google.protobuf.FieldMask field_mask = 2 [
+    json_name = "fieldMask",
+    (gnostic.openapi.v3.property) = {description: "字段掩码，指定需要返回的字段"}
+  ];
+}
+
+// 批量获取用户信息响应
+message BatchGetUsersResponse {
+  // 用户列表
   repeated User users = 1 [
-    (gnostic.openapi.v3.property) = {description: "用户信息列表"},
-    json_name = "users"
-  ]; // 用户信息列表
+    json_name = "users",
+    (gnostic.openapi.v3.property) = {description: "用户列表"}
+  ];
   
   // 未找到的用户ID列表
-  repeated uint32 not_found_user_ids = 2 [
-    (gnostic.openapi.v3.property) = {description: "未找到的用户ID列表"},
-    json_name = "notFoundUserIds"
+  repeated uint32 not_found_ids = 2 [
+    json_name = "notFoundIds",
+    (gnostic.openapi.v3.property) = {description: "未找到的用户ID列表"}
   ];
 }
 
-// 根据用户名获取用户 - 请求
-message GetUserByUserNameRequest {
-  string user_name = 1 [
-    (gnostic.openapi.v3.property) = {description: "用户登录名", read_only: true},
-    json_name = "userName"
-  ]; // 用户登录名
-}
-
-// 创建用户 - 请求
+// 创建用户请求
 message CreateUserRequest {
-  optional uint32 operator_id = 1 [
-    (gnostic.openapi.v3.property) = {description: "操作用户ID", read_only: true},
-    json_name = "operatorId"
-  ]; // 操作用户ID
-
-  User data = 2; // 用户基本信息
-
-  optional string password = 3 [
-    (gnostic.openapi.v3.property) = {description: "用户登录密码", read_only: true},
-    json_name = "password"
-  ]; // 用户登录密码
+  // 用户信息
+  User user = 1 [
+    json_name = "user",
+    (gnostic.openapi.v3.property) = {description: "用户信息"}
+  ];
   
-  // 用户账户初始状态设置
-  optional UserAccountStatus initial_status = 4 [
-    (gnostic.openapi.v3.property) = {description: "初始账户状态", default: {string: "ACTIVE"}},
-    json_name = "initialStatus"
-  ]; // 初始账户状态
+  // 初始密码，如果不提供则生成随机密码
+  optional string initial_password = 2 [
+    json_name = "initialPassword",
+    (gnostic.openapi.v3.property) = {description: "初始密码，如果不提供则生成随机密码"}
+  ];
   
-  // 是否发送欢迎邮件
-  optional bool send_welcome_email = 6 [
-    (gnostic.openapi.v3.property) = {description: "是否发送欢迎邮件", default: {boolean: false}},
-    json_name = "sendWelcomeEmail"
-  ]; // 是否发送欢迎邮件
-  
-  // 注意：账户安全策略相关功能已迁移至AccountService
-}
-
-// 更新用户 - 请求
-message UpdateUserRequest {
-  optional uint32 operator_id = 1 [
-    json_name = "operatorId",
-    (gnostic.openapi.v3.property) = {description: "操作用户ID", read_only: true}
-  ]; // 操作用户ID
-
-  User data = 2 [
-    json_name = "data",
-    (google.api.field_behavior) = REQUIRED,
-    (gnostic.openapi.v3.property) = {description: "用户的数据"}
-  ]; // 用户的数据
-
-  optional string password = 3 [
-    (gnostic.openapi.v3.property) = {description: "用户登录密码", read_only: true},
-    json_name = "password"
-  ]; // 用户登录密码
-
-  google.protobuf.FieldMask update_mask = 4 [
-    json_name = "updateMask",
-    (gnostic.openapi.v3.property) = {
-      description: "要更新的字段列表",
-      example: {yaml : "id,realName,userName"}
-    }
-  ]; // 要更新的字段列表
-
-  optional bool allow_missing = 5 [
-    json_name = "allowMissing",
-    (gnostic.openapi.v3.property) = {description: "如果设置为true的时候，资源不存在则会新增(插入)，并且在这种情况下`updateMask`字段将会被忽略。"}
-  ]; // 如果设置为true的时候，资源不存在则会新增(插入)，并且在这种情况下`updateMask`字段将会被忽略。
-}
-
-// 创建用户 - 响应
-message CreateUserResponse {
-  uint32 user_id = 1 [
-    (gnostic.openapi.v3.property) = {description: "新创建的用户ID"},
-    json_name = "userId"
-  ]; // 新创建的用户ID
-  
-  google.protobuf.Timestamp created_at = 2 [
-    json_name = "createdAt",
-    (gnostic.openapi.v3.property) = {description: "创建时间"}
-  ]; // 创建时间
-  
-  // 激活码(如果需要激活)
-  optional string activation_code = 3 [
-    json_name = "activationCode",
-    (gnostic.openapi.v3.property) = {description: "激活码(如果需要激活)"}
+  // 是否需要首次登录修改密码
+  optional bool require_password_change = 3 [
+    json_name = "requirePasswordChange",
+    (gnostic.openapi.v3.property) = {description: "是否需要首次登录修改密码"}
   ];
 }
 
-// 删除用户 - 请求
+// 创建用户响应
+message CreateUserResponse {
+  // 用户ID
+  uint32 id = 1 [
+    json_name = "id",
+    (gnostic.openapi.v3.property) = {description: "用户ID"}
+  ];
+  
+  // 生成的随机密码，仅当未提供初始密码时返回
+  optional string generated_password = 2 [
+    json_name = "generatedPassword",
+    (gnostic.openapi.v3.property) = {description: "生成的随机密码，仅当未提供初始密码时返回"}
+  ];
+}
+
+// 批量创建用户请求
+message BatchCreateUsersRequest {
+  // 用户列表
+  repeated User users = 1 [
+    json_name = "users",
+    (gnostic.openapi.v3.property) = {description: "用户列表"}
+  ];
+  
+  // 是否跳过已存在的用户
+  optional bool skip_existing = 2 [
+    json_name = "skipExisting",
+    (gnostic.openapi.v3.property) = {description: "是否跳过已存在的用户"}
+  ];
+  
+  // 是否需要首次登录修改密码
+  optional bool require_password_change = 3 [
+    json_name = "requirePasswordChange",
+    (gnostic.openapi.v3.property) = {description: "是否需要首次登录修改密码"}
+  ];
+}
+
+// 批量创建用户响应
+message BatchCreateUsersResponse {
+  // 批量操作结果
+  BatchOperationResult result = 1 [
+    json_name = "result",
+    (gnostic.openapi.v3.property) = {description: "批量操作结果"}
+  ];
+  
+  // 创建成功的用户ID列表
+  message CreatedUser {
+    // 索引，对应请求中的用户索引
+    uint32 index = 1 [
+      json_name = "index",
+      (gnostic.openapi.v3.property) = {description: "索引，对应请求中的用户索引"}
+    ];
+    
+    // 用户ID
+    uint32 id = 2 [
+      json_name = "id",
+      (gnostic.openapi.v3.property) = {description: "用户ID"}
+    ];
+    
+    // 生成的随机密码
+    optional string generated_password = 3 [
+      json_name = "generatedPassword",
+      (gnostic.openapi.v3.property) = {description: "生成的随机密码"}
+    ];
+  }
+  
+  // 创建成功的用户列表
+  repeated CreatedUser created_users = 2 [
+    json_name = "createdUsers",
+    (gnostic.openapi.v3.property) = {description: "创建成功的用户列表"}
+  ];
+}
+
+// 更新用户请求
+message UpdateUserRequest {
+  // 用户信息
+  User user = 1 [
+    json_name = "user",
+    (gnostic.openapi.v3.property) = {description: "用户信息"}
+  ];
+  
+  // 更新掩码，指定需要更新的字段
+  google.protobuf.FieldMask update_mask = 2 [
+    json_name = "updateMask",
+    (gnostic.openapi.v3.property) = {description: "更新掩码，指定需要更新的字段"}
+  ];
+}
+
+// 批量更新用户请求
+message BatchUpdateUsersRequest {
+  // 用户列表
+  repeated User users = 1 [
+    json_name = "users",
+    (gnostic.openapi.v3.property) = {description: "用户列表"}
+  ];
+  
+  // 更新掩码，指定需要更新的字段
+  google.protobuf.FieldMask update_mask = 2 [
+    json_name = "updateMask",
+    (gnostic.openapi.v3.property) = {description: "更新掩码，指定需要更新的字段"}
+  ];
+  
+  // 是否跳过不存在的用户
+  optional bool skip_not_found = 3 [
+    json_name = "skipNotFound",
+    (gnostic.openapi.v3.property) = {description: "是否跳过不存在的用户"}
+  ];
+}
+
+// 批量更新用户响应
+message BatchUpdateUsersResponse {
+  // 批量操作结果
+  BatchOperationResult result = 1 [
+    json_name = "result",
+    (gnostic.openapi.v3.property) = {description: "批量操作结果"}
+  ];
+}
+
+// 删除用户请求
 message DeleteUserRequest {
-  optional uint32 operator_id = 1 [
-    (gnostic.openapi.v3.property) = {description: "操作用户ID", read_only: true},
-    json_name = "operatorId"
-  ]; // 操作用户ID
-
-  uint32 id = 2 [json_name = "id", (gnostic.openapi.v3.property) = {description: "要删除的用户ID"}];
+  // 用户ID
+  uint32 id = 1 [
+    json_name = "id",
+    (gnostic.openapi.v3.property) = {description: "用户ID"}
+  ];
+  
+  // 是否物理删除，默认为逻辑删除
+  optional bool hard_delete = 2 [
+    json_name = "hardDelete",
+    (gnostic.openapi.v3.property) = {description: "是否物理删除，默认为逻辑删除"}
+  ];
 }
 
-// 验证密码 - 请求
-message VerifyPasswordRequest {
-  string user_name = 1 [
-    (gnostic.openapi.v3.property) = {description: "用户登录名", read_only: true},
-    json_name = "userName"
-  ]; // 用户登录名
-
-  string password = 2 [
-    (gnostic.openapi.v3.property) = {description: "用户登录密码", read_only: true},
-    json_name = "password"
-  ]; // 用户登录密码
-}
-// 验证密码 - 响应
-message VerifyPasswordResponse {
-  VerifyPasswordResult result = 1 [json_name = "result", (gnostic.openapi.v3.property) = {description: "验证结果"}];
-}
-
-// 用户是否存在 - 请求
-message UserExistsRequest {
-  string user_name = 1 [
-    (gnostic.openapi.v3.property) = {description: "用户登录名", read_only: true},
-    json_name = "userName"
-  ]; // 用户登录名
-}
-// 用户是否存在 - 响应
-message UserExistsResponse {
-  bool exist = 1 [json_name = "exist", (gnostic.openapi.v3.property) = {description: "用户是否存在"}];
+// 批量删除用户请求
+message BatchDeleteUsersRequest {
+  // 用户ID列表
+  repeated uint32 ids = 1 [
+    json_name = "ids",
+    (gnostic.openapi.v3.property) = {description: "用户ID列表"}
+  ];
+  
+  // 是否物理删除，默认为逻辑删除
+  optional bool hard_delete = 2 [
+    json_name = "hardDelete",
+    (gnostic.openapi.v3.property) = {description: "是否物理删除，默认为逻辑删除"}
+  ];
+  
+  // 是否跳过不存在的用户
+  optional bool skip_not_found = 3 [
+    json_name = "skipNotFound",
+    (gnostic.openapi.v3.property) = {description: "是否跳过不存在的用户"}
+  ];
 }
 
-// 获取用户角色列表 - 请求
+// 批量删除用户响应
+message BatchDeleteUsersResponse {
+  // 批量操作结果
+  BatchOperationResult result = 1 [
+    json_name = "result",
+    (gnostic.openapi.v3.property) = {description: "批量操作结果"}
+  ];
+}
+
+// 检查用户是否存在请求
+message CheckUserExistsRequest {
+  // 用户名
+  optional string username = 1 [
+    json_name = "username",
+    (gnostic.openapi.v3.property) = {description: "用户名"}
+  ];
+  
+  // 邮箱
+  optional string email = 2 [
+    json_name = "email",
+    (gnostic.openapi.v3.property) = {description: "邮箱"}
+  ];
+  
+  // 手机号
+  optional string mobile = 3 [
+    json_name = "mobile",
+    (gnostic.openapi.v3.property) = {description: "手机号"}
+  ];
+}
+
+// 检查用户是否存在响应
+message CheckUserExistsResponse {
+  // 是否存在
+  bool exists = 1 [
+    json_name = "exists",
+    (gnostic.openapi.v3.property) = {description: "是否存在"}
+  ];
+  
+  // 存在的字段列表
+  repeated string existing_fields = 2 [
+    json_name = "existingFields",
+    (gnostic.openapi.v3.property) = {description: "存在的字段列表"}
+  ];
+}
+
+// 获取用户角色列表请求
 message GetUserRolesRequest {
-  uint32 user_id = 1 [json_name = "userId", (gnostic.openapi.v3.property) = {description: "用户ID"}];
+  // 用户ID
+  uint32 user_id = 1 [
+    json_name = "userId",
+    (gnostic.openapi.v3.property) = {description: "用户ID"}
+  ];
+  
+  // 是否包含继承的角色
+  optional bool include_inherited = 2 [
+    json_name = "includeInherited",
+    (gnostic.openapi.v3.property) = {description: "是否包含继承的角色"}
+  ];
+  
+  // 是否包含动态角色
+  optional bool include_dynamic = 3 [
+    json_name = "includeDynamic",
+    (gnostic.openapi.v3.property) = {description: "是否包含动态角色"}
+  ];
 }
 
-// 用户角色信息（简化版，避免循环依赖）
-message UserRole {
-  uint32 id = 1 [json_name = "id", (gnostic.openapi.v3.property) = {description: "角色ID"}];
-  string name = 2 [json_name = "name", (gnostic.openapi.v3.property) = {description: "角色名称"}];
-  string code = 3 [json_name = "code", (gnostic.openapi.v3.property) = {description: "角色编码"}];
-  string status = 4 [json_name = "status", (gnostic.openapi.v3.property) = {description: "角色状态"}];
-  string remark = 5 [json_name = "remark", (gnostic.openapi.v3.property) = {description: "备注"}];
-}
-
-// 获取用户角色列表 - 响应
+// 获取用户角色列表响应
 message GetUserRolesResponse {
-  repeated UserRole roles = 1 [json_name = "roles", (gnostic.openapi.v3.property) = {description: "用户角色列表"}];
+  // 角色列表
+  message RoleInfo {
+    // 角色ID
+    uint32 id = 1 [
+      json_name = "id",
+      (gnostic.openapi.v3.property) = {description: "角色ID"}
+    ];
+    
+    // 角色名称
+    string name = 2 [
+      json_name = "name",
+      (gnostic.openapi.v3.property) = {description: "角色名称"}
+    ];
+    
+    // 角色代码
+    string code = 3 [
+      json_name = "code",
+      (gnostic.openapi.v3.property) = {description: "角色代码"}
+    ];
+    
+    // 角色类型
+    string type = 4 [
+      json_name = "type",
+      (gnostic.openapi.v3.property) = {description: "角色类型"}
+    ];
+    
+    // 是否为继承的角色
+    bool is_inherited = 5 [
+      json_name = "isInherited",
+      (gnostic.openapi.v3.property) = {description: "是否为继承的角色"}
+    ];
+    
+    // 是否为动态角色
+    bool is_dynamic = 6 [
+      json_name = "isDynamic",
+      (gnostic.openapi.v3.property) = {description: "是否为动态角色"}
+    ];
+  }
+  
+  // 角色列表
+  repeated RoleInfo roles = 1 [
+    json_name = "roles",
+    (gnostic.openapi.v3.property) = {description: "角色列表"}
+  ];
 }
 
-// 分配用户角色 - 请求
+// 分配用户角色请求
 message AssignUserRolesRequest {
-  optional uint32 operator_id = 1 [
-    (gnostic.openapi.v3.property) = {description: "操作用户ID", read_only: true},
-    json_name = "operatorId"
-  ]; // 操作用户ID
+  // 用户ID
+  uint32 user_id = 1 [
+    json_name = "userId",
+    (gnostic.openapi.v3.property) = {description: "用户ID"}
+  ];
   
-  uint32 user_id = 2 [json_name = "userId", (gnostic.openapi.v3.property) = {description: "用户ID"}];
-  repeated uint32 role_ids = 3 [json_name = "roleIds", (gnostic.openapi.v3.property) = {description: "角色ID列表"}];
+  // 角色ID列表
+  repeated uint32 role_ids = 2 [
+    json_name = "roleIds",
+    (gnostic.openapi.v3.property) = {description: "角色ID列表"}
+  ];
 }
 
-// 撤销用户角色 - 请求
+// 撤销用户角色请求
 message RevokeUserRolesRequest {
-  optional uint32 operator_id = 1 [
-    (gnostic.openapi.v3.property) = {description: "操作用户ID", read_only: true},
-    json_name = "operatorId"
-  ]; // 操作用户ID
+  // 用户ID
+  uint32 user_id = 1 [
+    json_name = "userId",
+    (gnostic.openapi.v3.property) = {description: "用户ID"}
+  ];
   
-  uint32 user_id = 2 [json_name = "userId", (gnostic.openapi.v3.property) = {description: "用户ID"}];
-  repeated uint32 role_ids = 3 [json_name = "roleIds", (gnostic.openapi.v3.property) = {description: "角色ID列表"}];
+  // 角色ID列表
+  repeated uint32 role_ids = 2 [
+    json_name = "roleIds",
+    (gnostic.openapi.v3.property) = {description: "角色ID列表"}
+  ];
 }
 
-// 密码管理相关消息定义已迁移至auth.proto
-// 请使用auth.proto中的ChangePasswordRequest、ResetPasswordRequest和ResetPasswordResponse
-
-// 获取用户有效权限 - 请求
+// 获取用户有效权限请求
 message GetUserEffectivePermissionsRequest {
-  uint32 user_id = 1 [json_name = "userId", (gnostic.openapi.v3.property) = {description: "用户ID"}];
-  optional string resource_type = 2 [json_name = "resourceType", (gnostic.openapi.v3.property) = {description: "资源类型，可选，按资源类型过滤"}]; 
-  bool skip_cache = 3 [json_name = "skipCache", (gnostic.openapi.v3.property) = {description: "是否跳过缓存，强制重新计算权限"}]; 
-}
-
-// 获取用户有效权限 - 响应
-message GetUserEffectivePermissionsResponse {
-  repeated api.user.service.v1.Permission permissions = 1 [json_name = "permissions", (gnostic.openapi.v3.property) = {description: "用户有效权限列表"}];
-  map<string, bool> permission_map = 2 [json_name = "permissionMap", (gnostic.openapi.v3.property) = {description: "权限编码到布尔值的映射，方便客户端快速查询"}]; 
-}
-
-// 检查用户权限 - 请求
-message CheckUserPermissionRequest {
-  uint32 user_id = 1 [json_name = "userId", (gnostic.openapi.v3.property) = {description: "用户ID"}];
-  string resource_identifier = 2 [json_name = "resourceIdentifier", (gnostic.openapi.v3.property) = {description: "资源标识符"}];
-  string action = 3 [json_name = "action", (gnostic.openapi.v3.property) = {description: "操作类型"}];
-  map<string, string> context = 4 [json_name = "context", (gnostic.openapi.v3.property) = {description: "上下文信息，用于条件表达式求值"}]; 
-  bool skip_cache = 5 [json_name = "skipCache", (gnostic.openapi.v3.property) = {description: "是否跳过缓存，强制重新检查权限"}]; 
-}
-
-// 检查用户权限 - 响应
-message CheckUserPermissionResponse {
-  bool has_permission = 1 [json_name = "hasPermission", (gnostic.openapi.v3.property) = {description: "是否拥有权限"}];
-  string deny_reason = 2 [json_name = "denyReason", (gnostic.openapi.v3.property) = {description: "拒绝原因"}];
-  uint32 matched_permission_id = 3 [json_name = "matchedPermissionId", (gnostic.openapi.v3.property) = {description: "匹配的权限ID"}];
-  bool from_cache = 4 [json_name = "fromCache", (gnostic.openapi.v3.property) = {description: "结果是否来自缓存"}]; 
-}
-
-// 清除用户权限缓存 - 请求
-message ClearUserPermissionCacheRequest {
-  optional uint32 operator_id = 1 [
-    (gnostic.openapi.v3.property) = {description: "操作用户ID", read_only: true},
-    json_name = "operatorId"
-  ]; // 操作用户ID
+  // 用户ID
+  uint32 user_id = 1 [
+    json_name = "userId",
+    (gnostic.openapi.v3.property) = {description: "用户ID"}
+  ];
   
-  optional uint32 user_id = 2 [json_name = "userId", (gnostic.openapi.v3.property) = {description: "指定用户ID，为空则清除所有用户的权限缓存"}];
-  optional string resource_type = 3 [json_name = "resourceType", (gnostic.openapi.v3.property) = {description: "指定资源类型，为空则不按资源类型过滤"}];
+  // 是否包含权限详情
+  optional bool include_details = 2 [
+    json_name = "includeDetails",
+    (gnostic.openapi.v3.property) = {description: "是否包含权限详情"}
+  ];
 }
 
-// 获取用户动态角色 - 请求
+// 获取用户有效权限响应
+message GetUserEffectivePermissionsResponse {
+  // 权限信息
+  message PermissionInfo {
+    // 权限ID
+    uint32 id = 1 [
+      json_name = "id",
+      (gnostic.openapi.v3.property) = {description: "权限ID"}
+    ];
+    
+    // 权限代码
+    string code = 2 [
+      json_name = "code",
+      (gnostic.openapi.v3.property) = {description: "权限代码"}
+    ];
+    
+    // 权限名称
+    string name = 3 [
+      json_name = "name",
+      (gnostic.openapi.v3.property) = {description: "权限名称"}
+    ];
+    
+    // 权限类型
+    string type = 4 [
+      json_name = "type",
+      (gnostic.openapi.v3.property) = {description: "权限类型"}
+    ];
+    
+    // 权限来源角色ID列表
+    repeated uint32 from_role_ids = 5 [
+      json_name = "fromRoleIds",
+      (gnostic.openapi.v3.property) = {description: "权限来源角色ID列表"}
+    ];
+  }
+  
+  // 权限列表
+  repeated PermissionInfo permissions = 1 [
+    json_name = "permissions",
+    (gnostic.openapi.v3.property) = {description: "权限列表"}
+  ];
+  
+  // 权限代码列表
+  repeated string permission_codes = 2 [
+    json_name = "permissionCodes",
+    (gnostic.openapi.v3.property) = {description: "权限代码列表"}
+  ];
+}
+
+// 检查用户权限请求
+message CheckUserPermissionRequest {
+  // 用户ID
+  uint32 user_id = 1 [
+    json_name = "userId",
+    (gnostic.openapi.v3.property) = {description: "用户ID"}
+  ];
+  
+  // 权限代码
+  string permission_code = 2 [
+    json_name = "permissionCode",
+    (gnostic.openapi.v3.property) = {description: "权限代码"}
+  ];
+  
+  // 资源ID，用于细粒度权限控制
+  optional string resource_id = 3 [
+    json_name = "resourceId",
+    (gnostic.openapi.v3.property) = {description: "资源ID，用于细粒度权限控制"}
+  ];
+  
+  // 上下文数据，用于动态权限评估
+  optional google.protobuf.Struct context = 4 [
+    json_name = "context",
+    (gnostic.openapi.v3.property) = {description: "上下文数据，用于动态权限评估"}
+  ];
+}
+
+// 检查用户权限响应
+message CheckUserPermissionResponse {
+  // 是否有权限
+  bool has_permission = 1 [
+    json_name = "hasPermission",
+    (gnostic.openapi.v3.property) = {description: "是否有权限"}
+  ];
+  
+  // 权限来源角色ID列表
+  repeated uint32 from_role_ids = 2 [
+    json_name = "fromRoleIds",
+    (gnostic.openapi.v3.property) = {description: "权限来源角色ID列表"}
+  ];
+}
+
+// 清除用户权限缓存请求
+message ClearUserPermissionCacheRequest {
+  // 用户ID
+  uint32 user_id = 1 [
+    json_name = "userId",
+    (gnostic.openapi.v3.property) = {description: "用户ID"}
+  ];
+}
+
+// 获取用户动态角色请求
 message GetUserDynamicRolesRequest {
-  uint32 user_id = 1 [json_name = "userId", (gnostic.openapi.v3.property) = {description: "用户ID"}];
-  bool evaluate_conditions = 2 [json_name = "evaluateConditions", (gnostic.openapi.v3.property) = {description: "是否评估动态条件"}];
-  map<string, string> context = 3 [json_name = "context", (gnostic.openapi.v3.property) = {description: "上下文信息，用于条件表达式求值"}];
+  // 用户ID
+  uint32 user_id = 1 [
+    json_name = "userId",
+    (gnostic.openapi.v3.property) = {description: "用户ID"}
+  ];
+  
+  // 上下文数据，用于动态角色评估
+  optional google.protobuf.Struct context = 2 [
+    json_name = "context",
+    (gnostic.openapi.v3.property) = {description: "上下文数据，用于动态角色评估"}
+  ];
 }
 
-// 获取用户动态角色 - 响应
+// 获取用户动态角色响应
 message GetUserDynamicRolesResponse {
-  repeated api.user.service.v1.Role roles = 1 [json_name = "roles", (gnostic.openapi.v3.property) = {description: "动态角色列表"}];
-  map<uint32, bool> condition_results = 2 [json_name = "conditionResults", (gnostic.openapi.v3.property) = {description: "角色ID到条件评估结果的映射"}];
+  // 动态角色信息
+  message DynamicRoleInfo {
+    // 角色ID
+    uint32 id = 1 [
+      json_name = "id",
+      (gnostic.openapi.v3.property) = {description: "角色ID"}
+    ];
+    
+    // 角色名称
+    string name = 2 [
+      json_name = "name",
+      (gnostic.openapi.v3.property) = {description: "角色名称"}
+    ];
+    
+    // 角色代码
+    string code = 3 [
+      json_name = "code",
+      (gnostic.openapi.v3.property) = {description: "角色代码"}
+    ];
+    
+    // 条件表达式
+    string condition = 4 [
+      json_name = "condition",
+      (gnostic.openapi.v3.property) = {description: "条件表达式"}
+    ];
+    
+    // 评估结果
+    bool evaluation_result = 5 [
+      json_name = "evaluationResult",
+      (gnostic.openapi.v3.property) = {description: "评估结果"}
+    ];
+  }
+  
+  // 动态角色列表
+  repeated DynamicRoleInfo dynamic_roles = 1 [
+    json_name = "dynamicRoles",
+    (gnostic.openapi.v3.property) = {description: "动态角色列表"}
+  ];
 }
 
-// 获取用户权限审计日志 - 请求
+// 获取用户权限审计日志请求
 message GetUserPermissionAuditLogsRequest {
-  uint32 user_id = 1 [json_name = "userId", (gnostic.openapi.v3.property) = {description: "用户ID"}];
-  optional google.protobuf.Timestamp start_time = 2 [json_name = "startTime", (gnostic.openapi.v3.property) = {description: "开始时间"}];
-  optional google.protobuf.Timestamp end_time = 3 [json_name = "endTime", (gnostic.openapi.v3.property) = {description: "结束时间"}];
-  optional string operation_type = 4 [json_name = "operationType", (gnostic.openapi.v3.property) = {description: "操作类型"}];
-  int32 page_size = 5 [json_name = "pageSize", (gnostic.openapi.v3.property) = {description: "分页大小"}];
-  int32 page_num = 6 [json_name = "pageNum", (gnostic.openapi.v3.property) = {description: "页码"}];
+  // 用户ID
+  uint32 user_id = 1 [
+    json_name = "userId",
+    (gnostic.openapi.v3.property) = {description: "用户ID"}
+  ];
+  
+  // 开始时间
+  optional google.protobuf.Timestamp start_time = 2 [
+    json_name = "startTime",
+    (gnostic.openapi.v3.property) = {description: "开始时间"}
+  ];
+  
+  // 结束时间
+  optional google.protobuf.Timestamp end_time = 3 [
+    json_name = "endTime",
+    (gnostic.openapi.v3.property) = {description: "结束时间"}
+  ];
+  
+  // 分页参数
+  uint32 page = 4 [
+    json_name = "page",
+    (gnostic.openapi.v3.property) = {description: "页码，从1开始"}
+  ];
+  
+  uint32 page_size = 5 [
+    json_name = "pageSize",
+    (gnostic.openapi.v3.property) = {description: "每页记录数"}
+  ];
 }
 
-// 获取用户权限审计日志 - 响应
+// 获取用户权限审计日志响应
 message GetUserPermissionAuditLogsResponse {
-  repeated api.user.service.v1.OperationLog logs = 1 [json_name = "logs", (gnostic.openapi.v3.property) = {description: "审计日志列表"}];
-  int32 total = 2 [json_name = "total", (gnostic.openapi.v3.property) = {description: "总记录数"}];
+  // 分页信息
+  PaginatedResponse pagination = 1 [
+    json_name = "pagination",
+    (gnostic.openapi.v3.property) = {description: "分页信息"}
+  ];
+  
+  // 审计日志信息
+  message AuditLogInfo {
+    // 日志ID
+    string id = 1 [
+      json_name = "id",
+      (gnostic.openapi.v3.property) = {description: "日志ID"}
+    ];
+    
+    // 操作类型
+    string operation = 2 [
+      json_name = "operation",
+      (gnostic.openapi.v3.property) = {description: "操作类型"}
+    ];
+    
+    // 操作对象类型
+    string target_type = 3 [
+      json_name = "targetType",
+      (gnostic.openapi.v3.property) = {description: "操作对象类型"}
+    ];
+    
+    // 操作对象ID
+    string target_id = 4 [
+      json_name = "targetId",
+      (gnostic.openapi.v3.property) = {description: "操作对象ID"}
+    ];
+    
+    // 操作对象名称
+    string target_name = 5 [
+      json_name = "targetName",
+      (gnostic.openapi.v3.property) = {description: "操作对象名称"}
+    ];
+    
+    // 操作者ID
+    uint32 operator_id = 6 [
+      json_name = "operatorId",
+      (gnostic.openapi.v3.property) = {description: "操作者ID"}
+    ];
+    
+    // 操作者名称
+    string operator_name = 7 [
+      json_name = "operatorName",
+      (gnostic.openapi.v3.property) = {description: "操作者名称"}
+    ];
+    
+    // 操作时间
+    google.protobuf.Timestamp operation_time = 8 [
+      json_name = "operationTime",
+      (gnostic.openapi.v3.property) = {description: "操作时间"}
+    ];
+    
+    // 操作详情
+    google.protobuf.Struct details = 9 [
+      json_name = "details",
+      (gnostic.openapi.v3.property) = {description: "操作详情"}
+    ];
+  }
+  
+  // 审计日志列表
+  repeated AuditLogInfo logs = 2 [
+    json_name = "logs",
+    (gnostic.openapi.v3.property) = {description: "审计日志列表"}
+  ];
 }
 
-// ========== 账户状态管理相关消息定义 ==========
-
-// 用户账户状态
-// 注意：此枚举与account.proto中的AccountStatus保持语义一致性
-// 但使用不同的命名以避免混淆
-enum UserAccountStatus {
-  ACTIVE = 0;          // 活跃状态
-  INACTIVE = 1;        // 未激活
-  LOCKED = 2;          // 已锁定
-  DISABLED = 3;        // 已禁用
-  ACCOUNT_DELETED = 4; // 已删除
+// 流式获取用户列表请求
+message StreamUsersRequest {
+  // 过滤条件
+  google.protobuf.Struct filter = 1 [
+    json_name = "filter",
+    (gnostic.openapi.v3.property) = {description: "过滤条件，JSON格式"}
+  ];
+  
+  // 排序选项
+  repeated SortOption sort = 2 [
+    json_name = "sort",
+    (gnostic.openapi.v3.property) = {description: "排序选项"}
+  ];
+  
+  // 字段掩码，指定需要返回的字段
+  google.protobuf.FieldMask field_mask = 3 [
+    json_name = "fieldMask",
+    (gnostic.openapi.v3.property) = {description: "字段掩码，指定需要返回的字段"}
+  ];
+  
+  // 批次大小
+  uint32 batch_size = 4 [
+    json_name = "batchSize",
+    (gnostic.openapi.v3.property) = {description: "批次大小"}
+  ];
 }
 
-// 注意：以下账户状态管理相关消息已迁移至account.proto
-// 请使用AccountService中的相关消息定义
+// 导出用户数据请求
+message ExportUsersRequest {
+  // 过滤条件
+  google.protobuf.Struct filter = 1 [
+    json_name = "filter",
+    (gnostic.openapi.v3.property) = {description: "过滤条件，JSON格式"}
+  ];
+  
+  // 排序选项
+  repeated SortOption sort = 2 [
+    json_name = "sort",
+    (gnostic.openapi.v3.property) = {description: "排序选项"}
+  ];
+  
+  // 导出格式：CSV, JSON, EXCEL
+  string format = 3 [
+    json_name = "format",
+    (gnostic.openapi.v3.property) = {description: "导出格式：CSV, JSON, EXCEL"}
+  ];
+  
+  // 导出字段列表
+  repeated string fields = 4 [
+    json_name = "fields",
+    (gnostic.openapi.v3.property) = {description: "导出字段列表"}
+  ];
+}
 
-// 以下是账户状态管理相关消息的引用说明：
-// - 激活账户：使用 ActivateAccountRequest
-// - 锁定账户：使用 LockAccountRequest
-// - 解锁账户：使用 UnlockAccountRequest
-// - 禁用账户：使用 DisableAccountRequest
-// - 启用账户：使用 EnableAccountRequest
-// - 验证账户状态：使用 VerifyAccountStatusRequest/Response
-// - 账户安全策略：使用 AccountSecurityPolicy
-// - 获取账户安全策略：使用 GetAccountSecurityPolicyRequest
-// - 更新账户安全策略：使用 UpdateAccountSecurityPolicyRequest
-// - 获取账户活动日志：使用 GetAccountActivityLogsRequest/Response
+// 导出用户数据响应
+message ExportUsersResponse {
+  // 数据块
+  bytes data = 1 [
+    json_name = "data",
+    (gnostic.openapi.v3.property) = {description: "数据块"}
+  ];
+  
+  // 是否为最后一块
+  bool is_last = 2 [
+    json_name = "isLast",
+    (gnostic.openapi.v3.property) = {description: "是否为最后一块"}
+  ];
+  
+  // 总记录数
+  uint64 total_records = 3 [
+    json_name = "totalRecords",
+    (gnostic.openapi.v3.property) = {description: "总记录数"}
+  ];
+}
+
+// 导入用户数据请求
+message ImportUsersRequest {
+  // 数据块
+  bytes data = 1 [
+    json_name = "data",
+    (gnostic.openapi.v3.property) = {description: "数据块"}
+  ];
+  
+  // 是否为最后一块
+  bool is_last = 2 [
+    json_name = "isLast",
+    (gnostic.openapi.v3.property) = {description: "是否为最后一块"}
+  ];
+  
+  // 导入格式：CSV, JSON, EXCEL
+  string format = 3 [
+    json_name = "format",
+    (gnostic.openapi.v3.property) = {description: "导入格式：CSV, JSON, EXCEL"}
+  ];
+  
+  // 是否跳过已存在的用户
+  bool skip_existing = 4 [
+    json_name = "skipExisting",
+    (gnostic.openapi.v3.property) = {description: "是否跳过已存在的用户"}
+  ];
+  
+  // 是否更新已存在的用户
+  bool update_existing = 5 [
+    json_name = "updateExisting",
+    (gnostic.openapi.v3.property) = {description: "是否更新已存在的用户"}
+  ];
+}
+
+// 导入用户数据响应
+message ImportUsersResponse {
+  // 导入结果
+  BatchOperationResult result = 1 [
+    json_name = "result",
+    (gnostic.openapi.v3.property) = {description: "导入结果"}
+  ];
+  
+  // 总处理记录数
+  uint64 total_processed = 2 [
+    json_name = "totalProcessed",
+    (gnostic.openapi.v3.property) = {description: "总处理记录数"}
+  ];
+  
+  // 新创建的用户数
+  uint32 created_count = 3 [
+    json_name = "createdCount",
+    (gnostic.openapi.v3.property) = {description: "新创建的用户数"}
+  ];
+  
+  // 更新的用户数
+  uint32 updated_count = 4 [
+    json_name = "updatedCount",
+    (gnostic.openapi.v3.property) = {description: "更新的用户数"}
+  ];
+  
+  // 跳过的用户数
+  uint32 skipped_count = 5 [
+    json_name = "skippedCount",
+    (gnostic.openapi.v3.property) = {description: "跳过的用户数"}
+  ];
+}

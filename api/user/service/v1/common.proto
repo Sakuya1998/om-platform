@@ -4,82 +4,142 @@ package api.user.service.v1;
 
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/struct.proto";
+import "google/protobuf/field_mask.proto";
 import "gnostic/openapi/v3/annotations.proto";
 
-option go_package = "om-platform/api/user/service/v1;v1";
+option go_package = "om-platform/api/user/service/v1;userv1";
 option java_multiple_files = true;
 option java_package = "api.user.service.v1";
 
 // 用户账户状态
 // 统一用户状态定义，在UserService和AccountService中共享使用
 enum UserAccountStatus {
-  USER_ACCOUNT_STATUS_UNSPECIFIED = 0; // 未指定状态
-  USER_ACCOUNT_STATUS_ACTIVE = 1;      // 活跃状态
-  USER_ACCOUNT_STATUS_INACTIVE = 2;    // 未激活
-  USER_ACCOUNT_STATUS_LOCKED = 3;      // 已锁定
-  USER_ACCOUNT_STATUS_DISABLED = 4;    // 已禁用
-  USER_ACCOUNT_STATUS_DELETED = 5;     // 已删除
+  // 未指定状态
+  USER_ACCOUNT_STATUS_UNSPECIFIED = 0 [
+    (gnostic.openapi.v3.property) = {description: "未指定状态"}
+  ];
+  
+  // 活跃状态，用户可以正常登录和使用系统
+  USER_ACCOUNT_STATUS_ACTIVE = 1 [
+    (gnostic.openapi.v3.property) = {description: "活跃状态，用户可以正常登录和使用系统"}
+  ];
+  
+  // 未激活，用户账户已创建但尚未完成激活流程
+  USER_ACCOUNT_STATUS_INACTIVE = 2 [
+    (gnostic.openapi.v3.property) = {description: "未激活，用户账户已创建但尚未完成激活流程"}
+  ];
+  
+  // 已锁定，由于安全原因（如多次密码错误）临时锁定
+  USER_ACCOUNT_STATUS_LOCKED = 3 [
+    (gnostic.openapi.v3.property) = {description: "已锁定，由于安全原因（如多次密码错误）临时锁定"}
+  ];
+  
+  // 已禁用，管理员手动禁用的账户
+  USER_ACCOUNT_STATUS_DISABLED = 4 [
+    (gnostic.openapi.v3.property) = {description: "已禁用，管理员手动禁用的账户"}
+  ];
+  
+  // 已删除，标记为已删除但未物理删除的账户
+  USER_ACCOUNT_STATUS_DELETED = 5 [
+    (gnostic.openapi.v3.property) = {description: "已删除，标记为已删除但未物理删除的账户"}
+  ];
+  
+  // 已过期，账户有效期已过
+  USER_ACCOUNT_STATUS_EXPIRED = 6 [
+    (gnostic.openapi.v3.property) = {description: "已过期，账户有效期已过"}
+  ];
 }
 
 // 用户权限级别
 // 定义用户在系统中的权限等级，用于基础的权限控制
 enum UserAuthority {
-  USER_AUTHORITY_UNSPECIFIED = 0;  // 未指定权限
-  USER_AUTHORITY_SUPER_ADMIN = 1;   // 系统超级管理员
-  USER_AUTHORITY_ADMIN = 2;         // 系统管理员
-  USER_AUTHORITY_USER = 3;          // 普通用户
-  USER_AUTHORITY_GUEST = 4;         // 游客
-  USER_AUTHORITY_REFRESH_TOKEN = 5; // 刷新令牌
+  // 未指定权限
+  USER_AUTHORITY_UNSPECIFIED = 0 [
+    (gnostic.openapi.v3.property) = {description: "未指定权限"}
+  ];
+  
+  // 系统超级管理员，拥有所有权限
+  USER_AUTHORITY_SUPER_ADMIN = 1 [
+    (gnostic.openapi.v3.property) = {description: "系统超级管理员，拥有所有权限"}
+  ];
+  
+  // 系统管理员，拥有大部分管理权限
+  USER_AUTHORITY_ADMIN = 2 [
+    (gnostic.openapi.v3.property) = {description: "系统管理员，拥有大部分管理权限"}
+  ];
+  
+  // 普通用户，拥有基本操作权限
+  USER_AUTHORITY_USER = 3 [
+    (gnostic.openapi.v3.property) = {description: "普通用户，拥有基本操作权限"}
+  ];
+  
+  // 游客，仅拥有只读权限
+  USER_AUTHORITY_GUEST = 4 [
+    (gnostic.openapi.v3.property) = {description: "游客，仅拥有只读权限"}
+  ];
+  
+  // 刷新令牌，仅用于刷新访问令牌
+  USER_AUTHORITY_REFRESH_TOKEN = 5 [
+    (gnostic.openapi.v3.property) = {description: "刷新令牌，仅用于刷新访问令牌"}
+  ];
+  
+  // 服务账户，用于系统间集成
+  USER_AUTHORITY_SERVICE_ACCOUNT = 6 [
+    (gnostic.openapi.v3.property) = {description: "服务账户，用于系统间集成"}
+  ];
 }
 
 // 用户性别
 enum UserGender {
-  USER_GENDER_UNSPECIFIED = 0; // 未指定
-  USER_GENDER_SECRET = 1;      // 保密
-  USER_GENDER_MALE = 2;        // 男性
-  USER_GENDER_FEMALE = 3;      // 女性
-}
-
-// 操作结果状态码
-// 用于统一API响应的状态码定义
-enum ResultCode {
-  RESULT_CODE_UNSPECIFIED = 0;       // 未指定
-  RESULT_CODE_SUCCESS = 1;            // 成功
-  RESULT_CODE_FAILED = 2;             // 失败
-  RESULT_CODE_UNAUTHORIZED = 3;       // 未授权
-  RESULT_CODE_FORBIDDEN = 4;          // 禁止访问
-  RESULT_CODE_NOT_FOUND = 5;          // 资源不存在
-  RESULT_CODE_ALREADY_EXISTS = 6;     // 资源已存在
-  RESULT_CODE_INVALID_ARGUMENT = 7;   // 参数无效
-  RESULT_CODE_INTERNAL_ERROR = 8;     // 内部错误
-  RESULT_CODE_SERVICE_UNAVAILABLE = 9;// 服务不可用
-  RESULT_CODE_TIMEOUT = 10;           // 超时
-  RESULT_CODE_RATE_LIMITED = 11;      // 请求频率限制
-  RESULT_CODE_BAD_GATEWAY = 12;       // 网关错误
-  RESULT_CODE_CONFLICT = 13;          // 资源冲突
-  RESULT_CODE_PRECONDITION_FAILED = 14; // 前置条件失败
-  RESULT_CODE_UNIMPLEMENTED = 15;     // 未实现
+  // 未指定
+  USER_GENDER_UNSPECIFIED = 0 [
+    (gnostic.openapi.v3.property) = {description: "未指定"}
+  ];
+  
+  // 保密
+  USER_GENDER_SECRET = 1 [
+    (gnostic.openapi.v3.property) = {description: "保密"}
+  ];
+  
+  // 男性
+  USER_GENDER_MALE = 2 [
+    (gnostic.openapi.v3.property) = {description: "男性"}
+  ];
+  
+  // 女性
+  USER_GENDER_FEMALE = 3 [
+    (gnostic.openapi.v3.property) = {description: "女性"}
+  ];
+  
+  // 其他
+  USER_GENDER_OTHER = 4 [
+    (gnostic.openapi.v3.property) = {description: "其他"}
+  ];
 }
 
 // 基础审计信息
 // 用于记录数据创建和更新的相关信息，可被其他消息类型复用
 message AuditInfo {
-  uint32 create_by = 1 [
+  // 创建者ID
+  optional uint32 create_by = 1 [
     json_name = "createBy", 
     (gnostic.openapi.v3.property) = {description: "创建者ID"}
   ];
   
-  google.protobuf.Timestamp create_time = 2 [
+  // 创建时间
+  optional google.protobuf.Timestamp create_time = 2 [
     json_name = "createTime", 
     (gnostic.openapi.v3.property) = {description: "创建时间"}
   ];
   
-  uint32 update_by = 3 [
+  // 更新者ID
+  optional uint32 update_by = 3 [
     json_name = "updateBy", 
     (gnostic.openapi.v3.property) = {description: "更新者ID"}
   ];
   
-  google.protobuf.Timestamp update_time = 4 [
+  // 更新时间
+  optional google.protobuf.Timestamp update_time = 4 [
     json_name = "updateTime", 
     (gnostic.openapi.v3.property) = {description: "更新时间"}
   ];
@@ -88,437 +148,160 @@ message AuditInfo {
 // 基础租户信息
 // 用于多租户系统中标识租户身份，支持SaaS模式下的租户隔离
 message TenantInfo {
-  uint32 tenant_id = 1 [
+  // 租户ID
+  optional uint32 tenant_id = 1 [
     json_name = "tenantId", 
     (gnostic.openapi.v3.property) = {description: "租户ID"}
   ];
   
-  string tenant_name = 2 [
+  // 租户名称
+  optional string tenant_name = 2 [
     json_name = "tenantName", 
     (gnostic.openapi.v3.property) = {description: "租户名称"}
   ];
   
-  string tenant_code = 3 [
+  // 租户代码，唯一标识符
+  optional string tenant_code = 3 [
     json_name = "tenantCode", 
-    (gnostic.openapi.v3.property) = {description: "租户编码，用于系统标识"}
-  ];
-}
-
-// 统一错误响应
-// 所有服务接口的错误响应都应使用此结构
-message ErrorResponse {
-  ResultCode code = 1 [
-    json_name = "code",
-    (gnostic.openapi.v3.property) = {description: "错误码"}
-  ]; // 错误码
-  
-  string message = 2 [
-    json_name = "message",
-    (gnostic.openapi.v3.property) = {description: "错误消息"}
-  ]; // 错误消息
-  
-  string request_id = 3 [
-    json_name = "requestId",
-    (gnostic.openapi.v3.property) = {description: "请求ID，用于跟踪和调试"}
-  ]; // 请求ID
-  
-  google.protobuf.Timestamp timestamp = 4 [
-    json_name = "timestamp",
-    (gnostic.openapi.v3.property) = {description: "错误发生时间"}
-  ]; // 错误发生时间
-  
-  map<string, string> details = 5 [
-    json_name = "details",
-    (gnostic.openapi.v3.property) = {description: "错误详情"}
-  ]; // 错误详情
-}
-
-// 身份提供商类型
-enum IdentityProviderType {
-  IDENTITY_PROVIDER_TYPE_UNSPECIFIED = 0 [
-    (gnostic.openapi.v3.property) = {description: "未指定"}
-  ]; // 未指定
-  IDENTITY_PROVIDER_TYPE_OAUTH2 = 1 [
-    (gnostic.openapi.v3.property) = {description: "OAuth2"}
-  ]; // OAuth2
-  IDENTITY_PROVIDER_TYPE_OIDC = 2 [
-    (gnostic.openapi.v3.property) = {description: "OpenID Connect"}
-  ]; // OpenID Connect
-  IDENTITY_PROVIDER_TYPE_SAML = 3 [
-    (gnostic.openapi.v3.property) = {description: "SAML"}
-  ]; // SAML
-  IDENTITY_PROVIDER_TYPE_LDAP = 4 [
-    (gnostic.openapi.v3.property) = {description: "LDAP"}
-  ]; // LDAP
-  IDENTITY_PROVIDER_TYPE_ACTIVE_DIRECTORY = 5 [
-    (gnostic.openapi.v3.property) = {description: "Active Directory"}
-  ]; // Active Directory
-  IDENTITY_PROVIDER_TYPE_CUSTOM = 6 [
-    (gnostic.openapi.v3.property) = {description: "自定义"}
-  ]; // 自定义
-}
-
-// OAuth2配置
-message OAuth2Config {
-  string client_id = 1; // 客户端ID
-  string client_secret = 2; // 客户端密钥
-  string authorization_endpoint = 3; // 授权端点
-  string token_endpoint = 4; // 令牌端点
-  string userinfo_endpoint = 5; // 用户信息端点
-  string redirect_uri = 6; // 重定向URI
-  repeated string scopes = 7; // 作用域
-  string response_type = 8; // 响应类型
-  map<string, string> additional_params = 9; // 附加参数
-}
-
-// OIDC配置
-message OIDCConfig {
-  string client_id = 1; // 客户端ID
-  string client_secret = 2; // 客户端密钥
-  string issuer = 3; // 颁发者
-  string authorization_endpoint = 4; // 授权端点
-  string token_endpoint = 5; // 令牌端点
-  string userinfo_endpoint = 6; // 用户信息端点
-  string jwks_uri = 7; // JWKS URI
-  string redirect_uri = 8; // 重定向URI
-  repeated string scopes = 9; // 作用域
-  string response_type = 10; // 响应类型
-  map<string, string> additional_params = 11; // 附加参数
-}
-
-// SAML配置
-message SAMLConfig {
-  string entity_id = 1; // 实体ID
-  string idp_entity_id = 2; // IdP实体ID
-  string idp_sso_url = 3; // IdP SSO URL
-  string idp_certificate = 4; // IdP证书
-  string sp_certificate = 5; // SP证书
-  string sp_private_key = 6; // SP私钥
-  string assertion_consumer_service_url = 7; // 断言消费者服务URL
-  string name_id_format = 8; // NameID格式
-  bool sign_requests = 9; // 是否签名请求
-  bool sign_assertions = 10; // 是否签名断言
-  bool encrypt_assertions = 11; // 是否加密断言
-  map<string, string> additional_params = 12; // 附加参数
-}
-
-// LDAP配置
-message LDAPConfig {
-  string server_url = 1; // 服务器URL
-  uint32 port = 2; // 端口
-  bool use_ssl = 3; // 是否使用SSL
-  bool use_tls = 4; // 是否使用TLS
-  string bind_dn = 5; // 绑定DN
-  string bind_password = 6; // 绑定密码
-  string search_base = 7; // 搜索基础
-  string search_filter = 8; // 搜索过滤器
-  string user_id_attribute = 9; // 用户ID属性
-  string username_attribute = 10; // 用户名属性
-  string email_attribute = 11; // 电子邮件属性
-  string name_attribute = 12; // 姓名属性
-  repeated string group_search_bases = 13; // 组搜索基础
-  string group_search_filter = 14; // 组搜索过滤器
-  string group_name_attribute = 15; // 组名称属性
-  uint32 connection_timeout = 16; // 连接超时(秒)
-  uint32 request_timeout = 17; // 请求超时(秒)
-  map<string, string> additional_params = 18; // 附加参数
-}
-
-// Active Directory配置
-message ActiveDirectoryConfig {
-  string domain = 1; // 域
-  string server_url = 2; // 服务器URL
-  uint32 port = 3; // 端口
-  bool use_ssl = 4; // 是否使用SSL
-  bool use_tls = 5; // 是否使用TLS
-  string service_account_username = 6; // 服务账户用户名
-  string service_account_password = 7; // 服务账户密码
-  string search_base = 8; // 搜索基础
-  string user_search_filter = 9; // 用户搜索过滤器
-  string group_search_filter = 10; // 组搜索过滤器
-  string user_id_attribute = 11; // 用户ID属性
-  string username_attribute = 12; // 用户名属性
-  string email_attribute = 13; // 电子邮件属性
-  string name_attribute = 14; // 姓名属性
-  string group_name_attribute = 15; // 组名称属性
-  uint32 connection_timeout = 16; // 连接超时(秒)
-  uint32 request_timeout = 17; // 请求超时(秒)
-  map<string, string> additional_params = 18; // 附加参数
-}
-
-// 属性映射配置
-message AttributeMappingConfig {
-  string id_attribute = 1; // ID属性
-  string username_attribute = 2; // 用户名属性
-  string email_attribute = 3; // 电子邮件属性
-  string first_name_attribute = 4; // 名字属性
-  string last_name_attribute = 5; // 姓氏属性
-  string display_name_attribute = 6; // 显示名称属性
-  string phone_attribute = 7; // 电话属性
-  string groups_attribute = 8; // 组属性
-  string roles_attribute = 9; // 角色属性
-  map<string, string> custom_attributes = 10; // 自定义属性映射
-}
-
-// 配置同步配置
-message ProvisioningConfig {
-  bool auto_provision_users = 1; // 是否自动配置用户
-  bool auto_update_user_info = 2; // 是否自动更新用户信息
-  bool auto_provision_groups = 3; // 是否自动配置组
-  bool auto_link_users = 4; // 是否自动关联用户
-  bool deactivate_users = 5; // 是否停用用户
-  uint32 sync_interval_minutes = 6; // 同步间隔(分钟)
-  repeated string default_roles = 7; // 默认角色
-  repeated string default_groups = 8; // 默认组
-  map<string, string> group_mappings = 9; // 组映射
-  map<string, string> role_mappings = 10; // 角色映射
-}
-
-// 基础用户身份信息
-// 用于在各服务间传递用户基本身份标识，包含最小化的用户信息
-message UserIdentity {
-  uint32 user_id = 1 [
-    json_name = "userId", 
-    (gnostic.openapi.v3.property) = {description: "用户ID"}
-  ];
-  
-  string user_name = 2 [
-    json_name = "userName", 
-    (gnostic.openapi.v3.property) = {description: "用户名，用于登录"}
-  ];
-  
-  string real_name = 3 [
-    json_name = "realName", 
-    (gnostic.openapi.v3.property) = {description: "真实姓名"}
-  ];
-  
-  UserAuthority authority = 4 [
-    json_name = "authority", 
-    (gnostic.openapi.v3.property) = {description: "权限级别"}
-  ];
-  
-  uint32 tenant_id = 5 [
-    json_name = "tenantId", 
-    (gnostic.openapi.v3.property) = {description: "所属租户ID"}
-  ];
-}
-
-// 通用响应头
-// 用于在响应消息中包含统一的元数据，提高API一致性
-message ResponseHeader {
-  ResultCode code = 1 [
-    json_name = "code", 
-    (gnostic.openapi.v3.property) = {description: "结果状态码"}
-  ];
-  
-  string message = 2 [
-    json_name = "message", 
-    (gnostic.openapi.v3.property) = {description: "结果描述信息"}
-  ];
-  
-  string request_id = 3 [
-    json_name = "requestId", 
-    (gnostic.openapi.v3.property) = {description: "请求ID，用于跟踪和调试"}
-  ];
-  
-  google.protobuf.Timestamp timestamp = 4 [
-    json_name = "timestamp", 
-    (gnostic.openapi.v3.property) = {description: "响应时间戳"}
+    (gnostic.openapi.v3.property) = {description: "租户代码，唯一标识符"}
   ];
 }
 
 // 分页响应包装器
 // 用于包装分页查询的响应结果，提供统一的分页信息
 message PaginatedResponse {
-  int32 total_count = 1 [
-    json_name = "totalCount", 
+  // 总记录数
+  uint64 total = 1 [
+    json_name = "total",
     (gnostic.openapi.v3.property) = {description: "总记录数"}
   ];
   
-  int32 page_size = 2 [
-    json_name = "pageSize", 
-    (gnostic.openapi.v3.property) = {description: "每页记录数"}
-  ];
-  
-  int32 current_page = 3 [
-    json_name = "currentPage", 
+  // 当前页码
+  uint32 page = 2 [
+    json_name = "page",
     (gnostic.openapi.v3.property) = {description: "当前页码"}
   ];
   
-  int32 total_pages = 4 [
-    json_name = "totalPages", 
+  // 每页记录数
+  uint32 page_size = 3 [
+    json_name = "pageSize",
+    (gnostic.openapi.v3.property) = {description: "每页记录数"}
+  ];
+  
+  // 总页数
+  uint32 total_pages = 4 [
+    json_name = "totalPages",
     (gnostic.openapi.v3.property) = {description: "总页数"}
   ];
   
+  // 是否有下一页
   bool has_next = 5 [
-    json_name = "hasNext", 
+    json_name = "hasNext",
     (gnostic.openapi.v3.property) = {description: "是否有下一页"}
   ];
   
+  // 是否有上一页
   bool has_previous = 6 [
-    json_name = "hasPrevious", 
+    json_name = "hasPrevious",
     (gnostic.openapi.v3.property) = {description: "是否有上一页"}
   ];
 }
 
-// 操作者信息
-// 用于记录API操作的执行者信息
-message OperatorInfo {
-  uint32 operator_id = 1 [
-    json_name = "operatorId", 
-    (gnostic.openapi.v3.property) = {description: "操作者ID"}
+// 排序选项
+// 用于指定查询结果的排序方式
+message SortOption {
+  // 排序字段
+  string field = 1 [
+    json_name = "field",
+    (gnostic.openapi.v3.property) = {description: "排序字段"}
   ];
   
-  string operator_name = 2 [
-    json_name = "operatorName", 
-    (gnostic.openapi.v3.property) = {description: "操作者名称"}
-  ];
-  
-  UserAuthority operator_authority = 3 [
-    json_name = "operatorAuthority", 
-    (gnostic.openapi.v3.property) = {description: "操作者权限级别"}
-  ];
-  
-  uint32 operator_tenant_id = 4 [
-    json_name = "operatorTenantId", 
-    (gnostic.openapi.v3.property) = {description: "操作者所属租户ID"}
+  // 排序方向：ASC（升序）或DESC（降序）
+  string direction = 2 [
+    json_name = "direction",
+    (gnostic.openapi.v3.property) = {description: "排序方向：ASC（升序）或DESC（降序）"}
   ];
 }
 
-// 时间粒度
-// 用于统计分析中指定数据聚合的时间维度
-enum TimeGranularity {
-  TIME_GRANULARITY_UNSPECIFIED = 0 [
-    (gnostic.openapi.v3.property) = {description: "未指定"}
-  ]; // 未指定
-  TIME_GRANULARITY_DAY = 1 [
-    (gnostic.openapi.v3.property) = {description: "按天"}
-  ]; // 按天
-  TIME_GRANULARITY_WEEK = 2 [
-    (gnostic.openapi.v3.property) = {description: "按周"}
-  ]; // 按周
-  TIME_GRANULARITY_MONTH = 3 [
-    (gnostic.openapi.v3.property) = {description: "按月"}
-  ]; // 按月
-  TIME_GRANULARITY_QUARTER = 4 [
-    (gnostic.openapi.v3.property) = {description: "按季度"}
-  ]; // 按季度
-  TIME_GRANULARITY_YEAR = 5 [
-    (gnostic.openapi.v3.property) = {description: "按年"}
-  ]; // 按年
-}
-
-// 用户批处理操作类型
-// 用于批量处理用户数据的操作类型定义
-enum UserBatchOperation {
-  USER_BATCH_OPERATION_UNSPECIFIED = 0 [
-    (gnostic.openapi.v3.property) = {description: "未指定"}
-  ]; // 未指定
-  USER_BATCH_OPERATION_ENABLE = 1 [
-    (gnostic.openapi.v3.property) = {description: "启用"}
-  ]; // 启用
-  USER_BATCH_OPERATION_DISABLE = 2 [
-    (gnostic.openapi.v3.property) = {description: "禁用"}
-  ]; // 禁用
-  USER_BATCH_OPERATION_DELETE = 3 [
-    (gnostic.openapi.v3.property) = {description: "删除"}
-  ]; // 删除
-  USER_BATCH_OPERATION_ASSIGN_ROLE = 4 [
-    (gnostic.openapi.v3.property) = {description: "分配角色"}
-  ]; // 分配角色
-  USER_BATCH_OPERATION_REVOKE_ROLE = 5 [
-    (gnostic.openapi.v3.property) = {description: "撤销角色"}
-  ]; // 撤销角色
-  USER_BATCH_OPERATION_ASSIGN_DEPARTMENT = 6 [
-    (gnostic.openapi.v3.property) = {description: "分配部门"}
-  ]; // 分配部门
-  USER_BATCH_OPERATION_CHANGE_TENANT = 7 [
-    (gnostic.openapi.v3.property) = {description: "变更租户"}
-  ]; // 变更租户
-  USER_BATCH_OPERATION_RESET_PASSWORD = 8 [
-    (gnostic.openapi.v3.property) = {description: "重置密码"}
-  ]; // 重置密码
-}
-
-// 数据导入来源
-// 用于指定批量导入数据的来源类型
-enum DataImportSource {
-  DATA_IMPORT_SOURCE_UNSPECIFIED = 0 [
-    (gnostic.openapi.v3.property) = {description: "未指定"}
-  ]; // 未指定
-  DATA_IMPORT_SOURCE_CSV = 1 [
-    (gnostic.openapi.v3.property) = {description: "CSV文件"}
-  ]; // CSV文件
-  DATA_IMPORT_SOURCE_EXCEL = 2 [
-    (gnostic.openapi.v3.property) = {description: "Excel文件"}
-  ]; // Excel文件
-  DATA_IMPORT_SOURCE_JSON = 3 [
-    (gnostic.openapi.v3.property) = {description: "JSON数据"}
-  ]; // JSON数据
-  DATA_IMPORT_SOURCE_LDAP = 4 [
-    (gnostic.openapi.v3.property) = {description: "LDAP目录"}
-  ]; // LDAP目录
-}
-
-// 数据导出格式
-// 用于指定批量导出数据的格式类型
-enum DataExportFormat {
-  DATA_EXPORT_FORMAT_UNSPECIFIED = 0 [
-    (gnostic.openapi.v3.property) = {description: "未指定"}
-  ]; // 未指定
-  DATA_EXPORT_FORMAT_CSV = 1 [
-    (gnostic.openapi.v3.property) = {description: "CSV文件"}
-  ]; // CSV文件
-  DATA_EXPORT_FORMAT_EXCEL = 2 [
-    (gnostic.openapi.v3.property) = {description: "Excel文件"}
-  ]; // Excel文件
-  DATA_EXPORT_FORMAT_JSON = 3 [
-    (gnostic.openapi.v3.property) = {description: "JSON数据"}
-  ]; // JSON数据
-  DATA_EXPORT_FORMAT_PDF = 4 [
-    (gnostic.openapi.v3.property) = {description: "PDF文档"}
-  ]; // PDF文档
-}
-
-// 通用时间范围请求
-// 用于各类统计分析接口的时间范围参数
-message TimeRangeRequest {
-  google.protobuf.Timestamp start_time = 1 [
-    json_name = "startTime",
-    (gnostic.openapi.v3.property) = {description: "开始时间"}
-  ]; // 开始时间
+// 通用分页请求
+// 用于所有需要分页的列表查询接口
+message PagingRequest {
+  // 页码，从1开始
+  uint32 page = 1 [
+    json_name = "page",
+    (gnostic.openapi.v3.property) = {description: "页码，从1开始"}
+  ];
   
-  google.protobuf.Timestamp end_time = 2 [
-    json_name = "endTime",
-    (gnostic.openapi.v3.property) = {description: "结束时间"}
-  ]; // 结束时间
+  // 每页记录数
+  uint32 page_size = 2 [
+    json_name = "pageSize",
+    (gnostic.openapi.v3.property) = {description: "每页记录数"}
+  ];
   
-  TimeGranularity time_granularity = 3 [
-    json_name = "timeGranularity",
-    (gnostic.openapi.v3.property) = {description: "时间粒度"}
-  ]; // 时间粒度
+  // 排序选项
+  repeated SortOption sort = 3 [
+    json_name = "sort",
+    (gnostic.openapi.v3.property) = {description: "排序选项"}
+  ];
+  
+  // 查询条件，使用JSON格式的过滤条件
+  google.protobuf.Struct filter = 4 [
+    json_name = "filter",
+    (gnostic.openapi.v3.property) = {description: "查询条件，使用JSON格式的过滤条件"}
+  ];
+  
+  // 字段掩码，指定需要返回的字段
+  google.protobuf.FieldMask field_mask = 5 [
+    json_name = "fieldMask",
+    (gnostic.openapi.v3.property) = {description: "字段掩码，指定需要返回的字段"}
+  ];
+  
+  // 租户ID，用于多租户系统
+  optional uint32 tenant_id = 6 [
+    json_name = "tenantId",
+    (gnostic.openapi.v3.property) = {description: "租户ID，用于多租户系统"}
+  ];
 }
 
-// 批处理结果
-// 用于返回批量操作的处理结果
-message BatchProcessResult {
-  uint32 total_count = 1 [
-    json_name = "totalCount",
-    (gnostic.openapi.v3.property) = {description: "总记录数"}
-  ]; // 总记录数
-  
-  uint32 success_count = 2 [
+// 批量操作结果
+// 用于返回批量操作的详细结果
+message BatchOperationResult {
+  // 成功处理的记录数
+  uint32 success_count = 1 [
     json_name = "successCount",
-    (gnostic.openapi.v3.property) = {description: "成功数量"}
-  ]; // 成功数量
+    (gnostic.openapi.v3.property) = {description: "成功处理的记录数"}
+  ];
   
-  uint32 failure_count = 3 [
+  // 失败的记录数
+  uint32 failure_count = 2 [
     json_name = "failureCount",
-    (gnostic.openapi.v3.property) = {description: "失败数量"}
-  ]; // 失败数量
+    (gnostic.openapi.v3.property) = {description: "失败的记录数"}
+  ];
   
-  string batch_id = 4 [
-    json_name = "batchId",
-    (gnostic.openapi.v3.property) = {description: "批次ID"}
-  ]; // 批次ID
+  // 详细的失败记录
+  message FailureDetail {
+    // 记录ID或索引
+    string id = 1 [
+      json_name = "id",
+      (gnostic.openapi.v3.property) = {description: "记录ID或索引"}
+    ];
+    
+    // 错误码
+    int32 error_code = 2 [
+      json_name = "errorCode",
+      (gnostic.openapi.v3.property) = {description: "错误码"}
+    ];
+    
+    // 错误消息
+    string error_message = 3 [
+      json_name = "errorMessage",
+      (gnostic.openapi.v3.property) = {description: "错误消息"}
+    ];
+  }
+  
+  // 失败详情列表
+  repeated FailureDetail failures = 3 [
+    json_name = "failures",
+    (gnostic.openapi.v3.property) = {description: "失败详情列表"}
+  ];
 }

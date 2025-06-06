@@ -1,0 +1,1069 @@
+syntax = "proto3";
+
+package user.service.v1;
+
+import "google/api/annotations.proto";
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/struct.proto";
+import "google/protobuf/descriptor.proto";
+import "validate/validate.proto";
+import "api/user/service/v1/common.proto";
+import "api/user/service/v1/error_codes.proto";
+
+option go_package = "om-platform/api/user/service/v1;userv1";
+option java_multiple_files = true;
+option java_package = "api.user.service.v1";
+
+// 认证服务 (AuthenticationService)
+// 提供用户认证、令牌管理和会话管理功能
+// 错误处理：所有接口在发生错误时将返回ErrorResponse结构，包含统一的错误码、错误消息和详细信息
+// 性能说明：支持高并发访问，关键接口已实现缓存优化
+// 安全说明：所有敏感操作均有日志记录和风险控制
+service AuthenticationService {
+  // 用户登录
+  // 支持多种认证方式：用户名密码、手机验证码、邮箱验证码、第三方OAuth等
+  // 返回访问令牌和刷新令牌
+  // 可能的错误码：INVALID_CREDENTIALS, ACCOUNT_LOCKED, ACCOUNT_DISABLED, TOO_MANY_ATTEMPTS
+  // 示例请求:
+  // {
+  //   "auth_type": "PASSWORD",
+  //   "username": "john.doe",
+  //   "password": "secure_password",
+  //   "device_info": {
+  //     "device_type": "BROWSER",
+  //     "device_name": "Chrome on Windows",
+  //     "device_id": "browser-fingerprint-xyz"
+  //   }
+  // }
+  rpc Login (LoginRequest) returns (LoginResponse) {
+    option (google.api.http) = {
+      post: "/v1/auth/login"
+      body: "*"
+    };
+    option (rate_limit) = {
+      requests_per_second: 50
+      burst: 100
+    };
+  }
+
+  // 用户登出
+  // 使当前令牌失效
+  // 可能的错误码：INVALID_TOKEN, TOKEN_EXPIRED
+  // 示例请求: {"token": "current-access-token"}
+  rpc Logout (LogoutRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post: "/v1/auth/logout"
+      body: "*"
+    };
+    option (rate_limit) = {
+      requests_per_second: 100
+      burst: 200
+    };
+  }
+
+  // 刷新令牌
+  // 使用刷新令牌获取新的访问令牌
+  // 可能的错误码：INVALID_TOKEN, TOKEN_EXPIRED, TOKEN_REVOKED
+  // 示例请求: {"refresh_token": "current-refresh-token"}
+  rpc RefreshToken (RefreshTokenRequest) returns (RefreshTokenResponse) {
+    option (google.api.http) = {
+      post: "/v1/auth/refresh"
+      body: "*"
+    };
+    option (rate_limit) = {
+      requests_per_second: 100
+      burst: 200
+    };
+  }
+
+  // 验证令牌
+  // 验证访问令牌的有效性并返回关联的用户信息
+  // 可能的错误码：INVALID_TOKEN, TOKEN_EXPIRED
+  // 示例请求: {"token": "access-token-to-validate"}
+  rpc ValidateToken (ValidateTokenRequest) returns (ValidateTokenResponse) {
+    option (google.api.http) = {
+      post: "/v1/auth/validate"
+      body: "*"
+    };
+    option (cache) = {
+      ttl_seconds: 60
+      key_pattern: "token:validate:{token_hash}"
+    };
+  }
+
+  // 修改密码
+  // 用户修改自己的密码
+  // 可能的错误码：INVALID_CREDENTIALS, PASSWORD_TOO_WEAK, PASSWORD_RECENTLY_USED
+  // 示例请求:
+  // {
+  //   "user_id": 123,
+  //   "current_password": "old-password",
+  //   "new_password": "new-secure-password"
+  // }
+  rpc ChangePassword (ChangePasswordRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post: "/v1/auth/change-password"
+      body: "*"
+    };
+    option (rate_limit) = {
+      requests_per_minute: 5
+      burst: 3
+      per_ip: true
+    };
+  }
+
+  // 重置密码
+  // 管理员或通过验证码重置用户密码
+  // 可能的错误码：USER_NOT_FOUND, INVALID_VERIFICATION_CODE, PASSWORD_TOO_WEAK
+  // 示例请求:
+  // {
+  //   "username": "john.doe",
+  //   "verification_code": "123456",
+  //   "new_password": "new-secure-password"
+  // }
+  rpc ResetPassword (ResetPasswordRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post: "/v1/auth/reset-password"
+      body: "*"
+    };
+    option (rate_limit) = {
+      requests_per_minute: 3
+      burst: 2
+      per_ip: true
+    };
+  }
+
+  // 发送密码重置验证码
+  // 向用户的邮箱或手机发送密码重置验证码
+  // 可能的错误码：USER_NOT_FOUND, TOO_MANY_ATTEMPTS
+  // 示例请求: {"username": "john.doe", "contact_type": "EMAIL"}
+  rpc SendPasswordResetCode (SendPasswordResetCodeRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post: "/v1/auth/send-reset-code"
+      body: "*"
+    };
+    option (rate_limit) = {
+      requests_per_second: 2
+      burst: 5
+    };
+  }
+
+  // 创建会话
+  // 创建新的用户会话
+  // 可能的错误码：USER_NOT_FOUND, PERMISSION_DENIED
+  rpc CreateSession (CreateSessionRequest) returns (CreateSessionResponse) {}
+
+  // 获取会话信息
+  // 获取指定会话的详细信息
+  // 可能的错误码：SESSION_NOT_FOUND, PERMISSION_DENIED
+  rpc GetSession (GetSessionRequest) returns (SessionInfo) {
+    option (cache) = {
+      cacheable: true
+      ttl_seconds: 60
+      cache_keys: ["session_id"]
+    };
+  }
+
+  // 更新会话
+  // 更新会话信息或延长会话有效期
+  // 可能的错误码：SESSION_NOT_FOUND, PERMISSION_DENIED
+  rpc UpdateSession (UpdateSessionRequest) returns (google.protobuf.Empty) {}
+
+  // 终止会话
+  // 终止指定的用户会话
+  // 可能的错误码：SESSION_NOT_FOUND, PERMISSION_DENIED
+  rpc TerminateSession (TerminateSessionRequest) returns (google.protobuf.Empty) {}
+
+  // 批量终止会话
+  // 批量终止多个用户会话
+  // 可能的错误码：PERMISSION_DENIED
+  rpc BatchTerminateSessions (BatchTerminateSessionsRequest) returns (BatchTerminateSessionsResponse) {}
+
+  // 查询用户会话
+  // 查询指定用户的所有活动会话
+  // 可能的错误码：USER_NOT_FOUND, PERMISSION_DENIED
+  rpc ListUserSessions (ListUserSessionsRequest) returns (ListUserSessionsResponse) {}
+
+  // 获取登录历史记录
+  // 获取用户的登录历史记录
+  // 可能的错误码：USER_NOT_FOUND, PERMISSION_DENIED
+  rpc GetLoginHistory (GetLoginHistoryRequest) returns (GetLoginHistoryResponse) {}
+
+  // 设置双因素认证
+  // 为用户启用或禁用双因素认证
+  // 可能的错误码：USER_NOT_FOUND, PERMISSION_DENIED
+  rpc SetTwoFactorAuth (SetTwoFactorAuthRequest) returns (SetTwoFactorAuthResponse) {}
+
+  // 验证双因素认证
+  // 验证用户提供的双因素认证码
+  // 可能的错误码：INVALID_VERIFICATION_CODE, TOO_MANY_ATTEMPTS
+  rpc VerifyTwoFactorAuth (VerifyTwoFactorAuthRequest) returns (VerifyTwoFactorAuthResponse) {
+    option (rate_limit) = {
+      requests_per_minute: 5
+      burst: 3
+      per_ip: true
+    };
+  }
+}
+
+// 认证类型
+enum AuthType {
+  // 未指定认证类型
+  AUTH_TYPE_UNSPECIFIED = 0;
+  // 用户名密码认证
+  PASSWORD = 1;
+  // 手机验证码认证
+  MOBILE_CODE = 2;
+  // 邮箱验证码认证
+  EMAIL_CODE = 3;
+  // OAuth认证
+  OAUTH = 4;
+  // LDAP认证
+  LDAP = 5;
+  // SAML认证
+  SAML = 6;
+  // 单点登录认证
+  SSO = 7;
+  // 证书认证
+  CERTIFICATE = 8;
+}
+
+// 设备类型
+enum DeviceType {
+  // 未指定设备类型
+  DEVICE_TYPE_UNSPECIFIED = 0;
+  // 浏览器
+  BROWSER = 1;
+  // 移动应用
+  MOBILE_APP = 2;
+  // 桌面应用
+  DESKTOP_APP = 3;
+  // API客户端
+  API_CLIENT = 4;
+  // IoT设备
+  IOT_DEVICE = 5;
+}
+
+// 设备信息
+message DeviceInfo {
+  // 设备类型
+  DeviceType device_type = 1 [
+    json_name = "deviceType",
+    (gnostic.openapi.v3.property) = {description: "设备类型"}
+  ];
+  
+  // 设备名称
+  string device_name = 2 [
+    json_name = "deviceName",
+    (gnostic.openapi.v3.property) = {description: "设备名称"}
+  ];
+  
+  // 设备ID
+  string device_id = 3 [
+    json_name = "deviceId",
+    (gnostic.openapi.v3.property) = {description: "设备ID"}
+  ];
+  
+  // 操作系统
+  string os = 4 [
+    json_name = "os",
+    (gnostic.openapi.v3.property) = {description: "操作系统"}
+  ];
+  
+  // 操作系统版本
+  string os_version = 5 [
+    json_name = "osVersion",
+    (gnostic.openapi.v3.property) = {description: "操作系统版本"}
+  ];
+  
+  // 应用版本
+  string app_version = 6 [
+    json_name = "appVersion",
+    (gnostic.openapi.v3.property) = {description: "应用版本"}
+  ];
+  
+  // IP地址
+  string ip_address = 7 [
+    json_name = "ipAddress",
+    (gnostic.openapi.v3.property) = {description: "IP地址"}
+  ];
+  
+  // 地理位置
+  string location = 8 [
+    json_name = "location",
+    (gnostic.openapi.v3.property) = {description: "地理位置"}
+  ];
+}
+
+// 登录请求
+message LoginRequest {
+  // 认证类型
+  AuthType auth_type = 1 [
+    json_name = "authType",
+    (gnostic.openapi.v3.property) = {description: "认证类型"}
+  ];
+  
+  // 用户名
+  optional string username = 2 [
+    json_name = "username",
+    (gnostic.openapi.v3.property) = {description: "用户名"}
+  ];
+  
+  // 密码
+  optional string password = 3 [
+    json_name = "password",
+    (gnostic.openapi.v3.property) = {description: "密码"}
+  ];
+  
+  // 手机号
+  optional string mobile = 4 [
+    json_name = "mobile",
+    (gnostic.openapi.v3.property) = {description: "手机号"}
+  ];
+  
+  // 邮箱
+  optional string email = 5 [
+    json_name = "email",
+    (gnostic.openapi.v3.property) = {description: "邮箱"}
+  ];
+  
+  // 验证码
+  optional string verification_code = 6 [
+    json_name = "verificationCode",
+    (gnostic.openapi.v3.property) = {description: "验证码"}
+  ];
+  
+  // OAuth提供商
+  optional string oauth_provider = 7 [
+    json_name = "oauthProvider",
+    (gnostic.openapi.v3.property) = {description: "OAuth提供商"}
+  ];
+  
+  // OAuth令牌
+  optional string oauth_token = 8 [
+    json_name = "oauthToken",
+    (gnostic.openapi.v3.property) = {description: "OAuth令牌"}
+  ];
+  
+  // 设备信息
+  DeviceInfo device_info = 9 [
+    json_name = "deviceInfo",
+    (gnostic.openapi.v3.property) = {description: "设备信息"}
+  ];
+  
+  // 租户ID
+  optional uint32 tenant_id = 10 [
+    json_name = "tenantId",
+    (gnostic.openapi.v3.property) = {description: "租户ID"}
+  ];
+  
+  // 是否记住登录状态
+  optional bool remember_me = 11 [
+    json_name = "rememberMe",
+    (gnostic.openapi.v3.property) = {description: "是否记住登录状态"}
+  ];
+  
+  // 双因素认证码
+  optional string two_factor_code = 12 [
+    json_name = "twoFactorCode",
+    (gnostic.openapi.v3.property) = {description: "双因素认证码"}
+  ];
+}
+
+// 简化用户信息
+message UserInfo {
+  // 用户ID
+  uint32 id = 1 [
+    json_name = "id",
+    (gnostic.openapi.v3.property) = {description: "用户ID"}
+  ];
+  
+  // 用户名
+  string username = 2 [
+    json_name = "username",
+    (gnostic.openapi.v3.property) = {description: "用户名"}
+  ];
+  
+  // 真实姓名
+  optional string real_name = 3 [
+    json_name = "realName",
+    (gnostic.openapi.v3.property) = {description: "真实姓名"}
+  ];
+  
+  // 头像
+  optional string avatar = 4 [
+    json_name = "avatar",
+    (gnostic.openapi.v3.property) = {description: "头像"}
+  ];
+  
+  // 邮箱
+  optional string email = 5 [
+    json_name = "email",
+    (gnostic.openapi.v3.property) = {description: "邮箱"}
+  ];
+  
+  // 手机号
+  optional string mobile = 6 [
+    json_name = "mobile",
+    (gnostic.openapi.v3.property) = {description: "手机号"}
+  ];
+  
+  // 部门ID
+  optional uint32 department_id = 7 [
+    json_name = "departmentId",
+    (gnostic.openapi.v3.property) = {description: "部门ID"}
+  ];
+  
+  // 角色ID列表
+  repeated uint32 role_ids = 8 [
+    json_name = "roleIds",
+    (gnostic.openapi.v3.property) = {description: "角色ID列表"}
+  ];
+  
+  // 权限代码列表
+  repeated string permission_codes = 9 [
+    json_name = "permissionCodes",
+    (gnostic.openapi.v3.property) = {description: "权限代码列表"}
+  ];
+  
+  // 账户状态
+  UserAccountStatus status = 10 [
+    json_name = "status",
+    (gnostic.openapi.v3.property) = {description: "账户状态"}
+  ];
+  
+  // 租户ID
+  optional uint32 tenant_id = 11 [
+    json_name = "tenantId",
+    (gnostic.openapi.v3.property) = {description: "租户ID"}
+  ];
+  
+  // 租户信息
+  optional TenantInfo tenant_info = 12 [
+    json_name = "tenantInfo",
+    (gnostic.openapi.v3.property) = {description: "租户信息"}
+  ];
+  
+  // 是否需要修改密码
+  optional bool require_password_change = 13 [
+    json_name = "requirePasswordChange",
+    (gnostic.openapi.v3.property) = {description: "是否需要修改密码"}
+  ];
+  
+  // 是否启用双因素认证
+  optional bool two_factor_enabled = 14 [
+    json_name = "twoFactorEnabled",
+    (gnostic.openapi.v3.property) = {description: "是否启用双因素认证"}
+  ];
+  
+  // 扩展字段
+  optional google.protobuf.Struct extensions = 1000 [
+    json_name = "extensions",
+    (gnostic.openapi.v3.property) = {description: "扩展字段"}
+  ];
+}
+
+// 登录响应
+message LoginResponse {
+  // 访问令牌
+  string access_token = 1 [
+    json_name = "accessToken",
+    (gnostic.openapi.v3.property) = {description: "访问令牌"}
+  ];
+  
+  // 刷新令牌
+  string refresh_token = 2 [
+    json_name = "refreshToken",
+    (gnostic.openapi.v3.property) = {description: "刷新令牌"}
+  ];
+  
+  // 令牌类型
+  string token_type = 3 [
+    json_name = "tokenType",
+    (gnostic.openapi.v3.property) = {description: "令牌类型"}
+  ];
+  
+  // 过期时间（秒）
+  uint32 expires_in = 4 [
+    json_name = "expiresIn",
+    (gnostic.openapi.v3.property) = {description: "过期时间（秒）"}
+  ];
+  
+  // 用户信息
+  UserInfo user_info = 5 [
+    json_name = "userInfo",
+    (gnostic.openapi.v3.property) = {description: "用户信息"}
+  ];
+  
+  // 会话ID
+  string session_id = 6 [
+    json_name = "sessionId",
+    (gnostic.openapi.v3.property) = {description: "会话ID"}
+  ];
+  
+  // 是否需要双因素认证
+  bool require_two_factor = 7 [
+    json_name = "requireTwoFactor",
+    (gnostic.openapi.v3.property) = {description: "是否需要双因素认证"}
+  ];
+}
+
+// 登出请求
+message LogoutRequest {
+  // 访问令牌
+  string token = 1 [
+    json_name = "token",
+    (gnostic.openapi.v3.property) = {description: "访问令牌"}
+  ];
+  
+  // 会话ID
+  optional string session_id = 2 [
+    json_name = "sessionId",
+    (gnostic.openapi.v3.property) = {description: "会话ID"}
+  ];
+  
+  // 是否登出所有设备
+  optional bool all_devices = 3 [
+    json_name = "allDevices",
+    (gnostic.openapi.v3.property) = {description: "是否登出所有设备"}
+  ];
+}
+
+// 刷新令牌请求
+message RefreshTokenRequest {
+  // 刷新令牌
+  string refresh_token = 1 [
+    json_name = "refreshToken",
+    (gnostic.openapi.v3.property) = {description: "刷新令牌"}
+  ];
+}
+
+// 刷新令牌响应
+message RefreshTokenResponse {
+  // 访问令牌
+  string access_token = 1 [
+    json_name = "accessToken",
+    (gnostic.openapi.v3.property) = {description: "访问令牌"}
+  ];
+  
+  // 刷新令牌
+  string refresh_token = 2 [
+    json_name = "refreshToken",
+    (gnostic.openapi.v3.property) = {description: "刷新令牌"}
+  ];
+  
+  // 令牌类型
+  string token_type = 3 [
+    json_name = "tokenType",
+    (gnostic.openapi.v3.property) = {description: "令牌类型"}
+  ];
+  
+  // 过期时间（秒）
+  uint32 expires_in = 4 [
+    json_name = "expiresIn",
+    (gnostic.openapi.v3.property) = {description: "过期时间（秒）"}
+  ];
+}
+
+// 验证令牌请求
+message ValidateTokenRequest {
+  // 访问令牌
+  string token = 1 [
+    json_name = "token",
+    (gnostic.openapi.v3.property) = {description: "访问令牌"}
+  ];
+}
+
+// 验证令牌响应
+message ValidateTokenResponse {
+  // 是否有效
+  bool is_valid = 1 [
+    json_name = "isValid",
+    (gnostic.openapi.v3.property) = {description: "是否有效"}
+  ];
+  
+  // 用户信息
+  UserInfo user_info = 2 [
+    json_name = "userInfo",
+    (gnostic.openapi.v3.property) = {description: "用户信息"}
+  ];
+  
+  // 过期时间
+  google.protobuf.Timestamp expires_at = 3 [
+    json_name = "expiresAt",
+    (gnostic.openapi.v3.property) = {description: "过期时间"}
+  ];
+  
+  // 会话ID
+  string session_id = 4 [
+    json_name = "sessionId",
+    (gnostic.openapi.v3.property) = {description: "会话ID"}
+  ];
+}
+
+// 修改密码请求
+message ChangePasswordRequest {
+  // 用户ID
+  uint32 user_id = 1 [
+    json_name = "userId",
+    (gnostic.openapi.v3.property) = {description: "用户ID"}
+  ];
+  
+  // 当前密码
+  string current_password = 2 [
+    json_name = "currentPassword",
+    (gnostic.openapi.v3.property) = {description: "当前密码"}
+  ];
+  
+  // 新密码
+  string new_password = 3 [
+    json_name = "newPassword",
+    (gnostic.openapi.v3.property) = {description: "新密码"}
+  ];
+}
+
+// 重置密码请求
+message ResetPasswordRequest {
+  // 用户名
+  optional string username = 1 [
+    json_name = "username",
+    (gnostic.openapi.v3.property) = {description: "用户名"}
+  ];
+  
+  // 邮箱
+  optional string email = 2 [
+    json_name = "email",
+    (gnostic.openapi.v3.property) = {description: "邮箱"}
+  ];
+  
+  // 手机号
+  optional string mobile = 3 [
+    json_name = "mobile",
+    (gnostic.openapi.v3.property) = {description: "手机号"}
+  ];
+  
+  // 验证码
+  optional string verification_code = 4 [
+    json_name = "verificationCode",
+    (gnostic.openapi.v3.property) = {description: "验证码"}
+  ];
+  
+  // 新密码
+  string new_password = 5 [
+    json_name = "newPassword",
+    (gnostic.openapi.v3.property) = {description: "新密码"}
+  ];
+  
+  // 是否需要首次登录修改密码
+  optional bool require_password_change = 6 [
+    json_name = "requirePasswordChange",
+    (gnostic.openapi.v3.property) = {description: "是否需要首次登录修改密码"}
+  ];
+}
+
+// 发送密码重置验证码请求
+message SendPasswordResetCodeRequest {
+  // 用户名
+  optional string username = 1 [
+    json_name = "username",
+    (gnostic.openapi.v3.property) = {description: "用户名"}
+  ];
+  
+  // 邮箱
+  optional string email = 2 [
+    json_name = "email",
+    (gnostic.openapi.v3.property) = {description: "邮箱"}
+  ];
+  
+  // 手机号
+  optional string mobile = 3 [
+    json_name = "mobile",
+    (gnostic.openapi.v3.property) = {description: "手机号"}
+  ];
+  
+  // 联系方式类型：EMAIL, MOBILE
+  string contact_type = 4 [
+    json_name = "contactType",
+    (gnostic.openapi.v3.property) = {description: "联系方式类型：EMAIL, MOBILE"}
+  ];
+}
+
+// 会话信息
+message SessionInfo {
+  // 会话ID
+  string id = 1 [
+    json_name = "id",
+    (gnostic.openapi.v3.property) = {description: "会话ID"}
+  ];
+  
+  // 用户ID
+  uint32 user_id = 2 [
+    json_name = "userId",
+    (gnostic.openapi.v3.property) = {description: "用户ID"}
+  ];
+  
+  // 用户名
+  string username = 3 [
+    json_name = "username",
+    (gnostic.openapi.v3.property) = {description: "用户名"}
+  ];
+  
+  // 设备信息
+  DeviceInfo device_info = 4 [
+    json_name = "deviceInfo",
+    (gnostic.openapi.v3.property) = {description: "设备信息"}
+  ];
+  
+  // 创建时间
+  google.protobuf.Timestamp created_at = 5 [
+    json_name = "createdAt",
+    (gnostic.openapi.v3.property) = {description: "创建时间"}
+  ];
+  
+  // 最后活动时间
+  google.protobuf.Timestamp last_activity_at = 6 [
+    json_name = "lastActivityAt",
+    (gnostic.openapi.v3.property) = {description: "最后活动时间"}
+  ];
+  
+  // 过期时间
+  google.protobuf.Timestamp expires_at = 7 [
+    json_name = "expiresAt",
+    (gnostic.openapi.v3.property) = {description: "过期时间"}
+  ];
+  
+  // 是否活动
+  bool is_active = 8 [
+    json_name = "isActive",
+    (gnostic.openapi.v3.property) = {description: "是否活动"}
+  ];
+  
+  // 会话属性
+  google.protobuf.Struct attributes = 9 [
+    json_name = "attributes",
+    (gnostic.openapi.v3.property) = {description: "会话属性"}
+  ];
+}
+
+// 创建会话请求
+message CreateSessionRequest {
+  // 用户ID
+  uint32 user_id = 1 [
+    json_name = "userId",
+    (gnostic.openapi.v3.property) = {description: "用户ID"}
+  ];
+  
+  // 设备信息
+  DeviceInfo device_info = 2 [
+    json_name = "deviceInfo",
+    (gnostic.openapi.v3.property) = {description: "设备信息"}
+  ];
+  
+  // 会话有效期（秒）
+  optional uint32 ttl_seconds = 3 [
+    json_name = "ttlSeconds",
+    (gnostic.openapi.v3.property) = {description: "会话有效期（秒）"}
+  ];
+  
+  // 会话属性
+  optional google.protobuf.Struct attributes = 4 [
+    json_name = "attributes",
+    (gnostic.openapi.v3.property) = {description: "会话属性"}
+  ];
+}
+
+// 创建会话响应
+message CreateSessionResponse {
+  // 会话ID
+  string session_id = 1 [
+    json_name = "sessionId",
+    (gnostic.openapi.v3.property) = {description: "会话ID"}
+  ];
+  
+  // 会话信息
+  SessionInfo session_info = 2 [
+    json_name = "sessionInfo",
+    (gnostic.openapi.v3.property) = {description: "会话信息"}
+  ];
+}
+
+// 获取会话请求
+message GetSessionRequest {
+  // 会话ID
+  string session_id = 1 [
+    json_name = "sessionId",
+    (gnostic.openapi.v3.property) = {description: "会话ID"}
+  ];
+}
+
+// 更新会话请求
+message UpdateSessionRequest {
+  // 会话ID
+  string session_id = 1 [
+    json_name = "sessionId",
+    (gnostic.openapi.v3.property) = {description: "会话ID"}
+  ];
+  
+  // 延长有效期（秒）
+  optional uint32 extend_ttl_seconds = 2 [
+    json_name = "extendTtlSeconds",
+    (gnostic.openapi.v3.property) = {description: "延长有效期（秒）"}
+  ];
+  
+  // 会话属性
+  optional google.protobuf.Struct attributes = 3 [
+    json_name = "attributes",
+    (gnostic.openapi.v3.property) = {description: "会话属性"}
+  ];
+}
+
+// 终止会话请求
+message TerminateSessionRequest {
+  // 会话ID
+  string session_id = 1 [
+    json_name = "sessionId",
+    (gnostic.openapi.v3.property) = {description: "会话ID"}
+  ];
+}
+
+// 批量终止会话请求
+message BatchTerminateSessionsRequest {
+  // 会话ID列表
+  repeated string session_ids = 1 [
+    json_name = "sessionIds",
+    (gnostic.openapi.v3.property) = {description: "会话ID列表"}
+  ];
+  
+  // 用户ID
+  optional uint32 user_id = 2 [
+    json_name = "userId",
+    (gnostic.openapi.v3.property) = {description: "用户ID"}
+  ];
+  
+  // 终止除当前会话外的所有会话
+  optional bool all_except_current = 3 [
+    json_name = "allExceptCurrent",
+    (gnostic.openapi.v3.property) = {description: "终止除当前会话外的所有会话"}
+  ];
+  
+  // 当前会话ID
+  optional string current_session_id = 4 [
+    json_name = "currentSessionId",
+    (gnostic.openapi.v3.property) = {description: "当前会话ID"}
+  ];
+}
+
+// 批量终止会话响应
+message BatchTerminateSessionsResponse {
+  // 批量操作结果
+  BatchOperationResult result = 1 [
+    json_name = "result",
+    (gnostic.openapi.v3.property) = {description: "批量操作结果"}
+  ];
+}
+
+// 查询用户会话请求
+message ListUserSessionsRequest {
+  // 用户ID
+  uint32 user_id = 1 [
+    json_name = "userId",
+    (gnostic.openapi.v3.property) = {description: "用户ID"}
+  ];
+  
+  // 是否仅查询活动会话
+  optional bool active_only = 2 [
+    json_name = "activeOnly",
+    (gnostic.openapi.v3.property) = {description: "是否仅查询活动会话"}
+  ];
+  
+  // 分页参数
+  uint32 page = 3 [
+    json_name = "page",
+    (gnostic.openapi.v3.property) = {description: "页码，从1开始"}
+  ];
+  
+  uint32 page_size = 4 [
+    json_name = "pageSize",
+    (gnostic.openapi.v3.property) = {description: "每页记录数"}
+  ];
+}
+
+// 查询用户会话响应
+message ListUserSessionsResponse {
+  // 分页信息
+  PaginatedResponse pagination = 1 [
+    json_name = "pagination",
+    (gnostic.openapi.v3.property) = {description: "分页信息"}
+  ];
+  
+  // 会话列表
+  repeated SessionInfo sessions = 2 [
+    json_name = "sessions",
+    (gnostic.openapi.v3.property) = {description: "会话列表"}
+  ];
+}
+
+// 获取登录历史记录请求
+message GetLoginHistoryRequest {
+  // 用户ID
+  uint32 user_id = 1 [
+    json_name = "userId",
+    (gnostic.openapi.v3.property) = {description: "用户ID"}
+  ];
+  
+  // 开始时间
+  optional google.protobuf.Timestamp start_time = 2 [
+    json_name = "startTime",
+    (gnostic.openapi.v3.property) = {description: "开始时间"}
+  ];
+  
+  // 结束时间
+  optional google.protobuf.Timestamp end_time = 3 [
+    json_name = "endTime",
+    (gnostic.openapi.v3.property) = {description: "结束时间"}
+  ];
+  
+  // 分页参数
+  uint32 page = 4 [
+    json_name = "page",
+    (gnostic.openapi.v3.property) = {description: "页码，从1开始"}
+  ];
+  
+  uint32 page_size = 5 [
+    json_name = "pageSize",
+    (gnostic.openapi.v3.property) = {description: "每页记录数"}
+  ];
+}
+
+// 获取登录历史记录响应
+message GetLoginHistoryResponse {
+  // 分页信息
+  PaginatedResponse pagination = 1 [
+    json_name = "pagination",
+    (gnostic.openapi.v3.property) = {description: "分页信息"}
+  ];
+  
+  // 登录历史记录
+  message LoginHistoryEntry {
+    // 记录ID
+    string id = 1 [
+      json_name = "id",
+      (gnostic.openapi.v3.property) = {description: "记录ID"}
+    ];
+    
+    // 用户ID
+    uint32 user_id = 2 [
+      json_name = "userId",
+      (gnostic.openapi.v3.property) = {description: "用户ID"}
+    ];
+    
+    // 用户名
+    string username = 3 [
+      json_name = "username",
+      (gnostic.openapi.v3.property) = {description: "用户名"}
+    ];
+    
+    // 登录时间
+    google.protobuf.Timestamp login_time = 4 [
+      json_name = "loginTime",
+      (gnostic.openapi.v3.property) = {description: "登录时间"}
+    ];
+    
+    // 登录状态：SUCCESS, FAILED
+    string status = 5 [
+      json_name = "status",
+      (gnostic.openapi.v3.property) = {description: "登录状态：SUCCESS, FAILED"}
+    ];
+    
+    // 失败原因
+    optional string failure_reason = 6 [
+      json_name = "failureReason",
+      (gnostic.openapi.v3.property) = {description: "失败原因"}
+    ];
+    
+    // 设备信息
+    DeviceInfo device_info = 7 [
+      json_name = "deviceInfo",
+      (gnostic.openapi.v3.property) = {description: "设备信息"}
+    ];
+    
+    // 会话ID
+    optional string session_id = 8 [
+      json_name = "sessionId",
+      (gnostic.openapi.v3.property) = {description: "会话ID"}
+    ];
+  }
+  
+  // 登录历史记录列表
+  repeated LoginHistoryEntry history = 2 [
+    json_name = "history",
+    (gnostic.openapi.v3.property) = {description: "登录历史记录列表"}
+  ];
+}
+
+// 设置双因素认证请求
+message SetTwoFactorAuthRequest {
+  // 用户ID
+  uint32 user_id = 1 [
+    json_name = "userId",
+    (gnostic.openapi.v3.property) = {description: "用户ID"}
+  ];
+  
+  // 是否启用
+  bool enabled = 2 [
+    json_name = "enabled",
+    (gnostic.openapi.v3.property) = {description: "是否启用"}
+  ];
+  
+  // 认证类型：APP, SMS, EMAIL
+  string auth_type = 3 [
+    json_name = "authType",
+    (gnostic.openapi.v3.property) = {description: "认证类型：APP, SMS, EMAIL"}
+  ];
+}
+
+// 设置双因素认证响应
+message SetTwoFactorAuthResponse {
+  // 是否成功
+  bool success = 1 [
+    json_name = "success",
+    (gnostic.openapi.v3.property) = {description: "是否成功"}
+  ];
+  
+  // 密钥（仅APP类型返回）
+  optional string secret_key = 2 [
+    json_name = "secretKey",
+    (gnostic.openapi.v3.property) = {description: "密钥（仅APP类型返回）"}
+  ];
+  
+  // 二维码URL（仅APP类型返回）
+  optional string qr_code_url = 3 [
+    json_name = "qrCodeUrl",
+    (gnostic.openapi.v3.property) = {description: "二维码URL（仅APP类型返回）"}
+  ];
+}
+
+// 验证双因素认证请求
+message VerifyTwoFactorAuthRequest {
+  // 用户ID
+  uint32 user_id = 1 [
+    json_name = "userId",
+    (gnostic.openapi.v3.property) = {description: "用户ID"}
+  ];
+  
+  // 验证码
+  string code = 2 [
+    json_name = "code",
+    (gnostic.openapi.v3.property) = {description: "验证码"}
+  ];
+}
+
+// 验证双因素认证响应
+message VerifyTwoFactorAuthResponse {
+  // 是否有效
+  bool is_valid = 1 [
+    json_name = "isValid",
+    (gnostic.openapi.v3.property) = {description: "是否有效"}
+  ];
+}

@@ -1,292 +1,1364 @@
 syntax = "proto3";
 
-package api.user.service.v1;
+package user.service.v1;
 
-import "gnostic/openapi/v3/annotations.proto";
+import "google/api/annotations.proto";
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/field_mask.proto";
+import "google/protobuf/struct.proto";
+import "google/protobuf/descriptor.proto";
+import "validate/validate.proto";
+import "api/user/service/v1/common.proto";
+import "api/user/service/v1/error_codes.proto";
 
-import "pkg/utils/pagination/v1/pagination.proto";
-import "api/user/service/v1/permission.proto";
-
-option go_package = "om-platform/api/user/service/v1;v1";
+option go_package = "om-platform/api/user/service/v1;userv1";
 option java_multiple_files = true;
 option java_package = "api.user.service.v1";
 
-// 角色服务
+// 角色服务 (RoleService)
+// 提供角色管理、角色权限管理和角色分配等功能
 // 错误处理：所有接口在发生错误时将返回ErrorResponse结构，包含统一的错误码、错误消息和详细信息
+// 性能说明：支持高并发访问，关键接口已实现缓存优化
+// 安全说明：所有接口需要认证和授权，详见权限矩阵文档
 service RoleService {
   // 查询角色列表
-  rpc ListRole (pkg.utils.pagination.v1.PagingRequest) returns (ListRoleResponse) {}
+  // 支持按名称、类型等条件筛选
+  // 支持分页和排序
+  // 权限要求：ROLE_READ 或 ADMIN
+  // 可能的错误码：PERMISSION_DENIED, INVALID_ARGUMENT
+  rpc ListRoles (ListRolesRequest) returns (ListRolesResponse) {
+    option (google.api.http) = {
+      get: "/v1/roles"
+    };
+    option (cache) = {
+      ttl_seconds: 300
+      key_pattern: "roles:{organization_id}:{page}:{size}:{filter}"
+    };
+    option (rate_limit) = {
+      requests_per_second: 1000
+      burst: 2000
+    };
+  }
 
   // 查询角色详情
-  rpc GetRole (GetRoleRequest) returns (Role) {}
-
+  // 根据角色ID获取角色详细信息
+  // 权限要求：ROLE_READ 或 ADMIN
+  // 可能的错误码：ROLE_NOT_FOUND, PERMISSION_DENIED
+  rpc GetRole (GetRoleRequest) returns (Role) {
+    option (google.api.http) = {
+      get: "/v1/roles/{id}"
+    };
+    option (cache) = {
+      ttl_seconds: 600
+      key_pattern: "role:{id}"
+    };
+  }
+  
   // 创建角色
-  rpc CreateRole (CreateRoleRequest) returns (google.protobuf.Empty) {}
+  // 创建新角色并返回角色ID
+  // 权限要求：ROLE_CREATE 或 ADMIN
+  // 可能的错误码：ROLE_ALREADY_EXISTS, PERMISSION_DENIED, INVALID_ARGUMENT
+  rpc CreateRole (CreateRoleRequest) returns (CreateRoleResponse) {
+    option (google.api.http) = {
+      post: "/v1/roles"
+      body: "*"
+    };
+    option (rate_limit) = {
+      requests_per_second: 50
+      burst: 100
+    };
+  }
 
   // 更新角色
-  rpc UpdateRole (UpdateRoleRequest) returns (google.protobuf.Empty) {}
+  // 更新角色信息，使用FieldMask指定需要更新的字段
+  // 权限要求：ROLE_UPDATE 或 ADMIN
+  // 可能的错误码：ROLE_NOT_FOUND, PERMISSION_DENIED, INVALID_ARGUMENT
+  rpc UpdateRole (UpdateRoleRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      put: "/v1/roles/{role.id}"
+      body: "*"
+    };
+    option (rate_limit) = {
+      requests_per_second: 100
+      burst: 200
+    };
+  }
 
   // 删除角色
-  rpc DeleteRole (DeleteRoleRequest) returns (google.protobuf.Empty) {}
-  
+  // 删除指定角色（逻辑删除）
+  // 权限要求：ROLE_DELETE 或 ADMIN
+  // 可能的错误码：ROLE_NOT_FOUND, PERMISSION_DENIED
+  rpc DeleteRole (DeleteRoleRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      delete: "/v1/roles/{role_id}"
+    };
+    option (rate_limit) = {
+      requests_per_second: 50
+      burst: 100
+    };
+  }
+
+  // 批量获取角色信息
+  // 根据角色ID列表批量获取角色信息
+  // 权限要求：ROLE_READ 或 ADMIN
+  // 可能的错误码：PERMISSION_DENIED, INVALID_ARGUMENT
+  rpc BatchGetRoles (BatchGetRolesRequest) returns (BatchGetRolesResponse) {
+    option (cache) = {
+      cacheable: true
+      ttl_seconds: 60
+      cache_keys: ["ids", "field_mask"]
+    };
+  }
+
+  // 批量创建角色
+  // 批量创建多个角色并返回创建结果
+  // 权限要求：ROLE_CREATE 或 ADMIN
+  // 可能的错误码：ROLE_ALREADY_EXISTS, PERMISSION_DENIED, INVALID_ARGUMENT
+  rpc BatchCreateRoles (BatchCreateRolesRequest) returns (BatchCreateRolesResponse) {
+    option (google.api.http) = {
+      post: "/v1/roles/batch"
+      body: "*"
+    };
+    option (rate_limit) = {
+      requests_per_second: 20
+      burst: 50
+    };
+  }
+
+  // 批量更新角色
+  // 批量更新多个角色信息
+  // 权限要求：ROLE_UPDATE 或 ADMIN
+  // 可能的错误码：ROLE_NOT_FOUND, PERMISSION_DENIED, INVALID_ARGUMENT
+  rpc BatchUpdateRoles (BatchUpdateRolesRequest) returns (BatchUpdateRolesResponse) {
+    option (google.api.http) = {
+      put: "/v1/roles/batch"
+      body: "*"
+    };
+    option (rate_limit) = {
+      requests_per_second: 20
+      burst: 50
+    };
+  }
+
+  // 批量删除角色
+  // 批量删除多个角色（逻辑删除）
+  // 权限要求：ROLE_DELETE 或 ADMIN
+  // 可能的错误码：ROLE_NOT_FOUND, PERMISSION_DENIED
+  rpc BatchDeleteRoles (BatchDeleteRolesRequest) returns (BatchDeleteRolesResponse) {
+    option (google.api.http) = {
+      delete: "/v1/roles/batch"
+      body: "*"
+    };
+    option (rate_limit) = {
+      requests_per_second: 20
+      burst: 50
+    };
+  }
+
   // 获取角色权限列表
-  rpc GetRolePermissions (GetRolePermissionsRequest) returns (GetRolePermissionsResponse) {}
-  
+  // 获取指定角色的所有权限
+  // 权限要求：ROLE_READ 或 ADMIN
+  // 可能的错误码：ROLE_NOT_FOUND, PERMISSION_DENIED
+  rpc GetRolePermissions (GetRolePermissionsRequest) returns (GetRolePermissionsResponse) {
+    option (google.api.http) = {
+      get: "/v1/roles/{role_id}/permissions"
+    };
+    option (cache) = {
+      ttl_seconds: 600
+      key_pattern: "role:{role_id}:perms"
+    };
+  }
+
+  // 更新角色权限
+  // 更新角色的权限列表
+  // 权限要求：ROLE_PERMISSION_MANAGE 或 ADMIN
+  // 可能的错误码：ROLE_NOT_FOUND, PERMISSION_DENIED, INVALID_ARGUMENT
+  rpc UpdateRolePermissions (UpdateRolePermissionsRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      put: "/v1/roles/{role_id}/permissions"
+      body: "*"
+    };
+    option (rate_limit) = {
+      requests_per_second: 50
+      burst: 100
+    };
+  }
+
+  // 获取用户角色列表
+  // 获取指定用户的所有角色
+  // 权限要求：ROLE_READ 或 ADMIN 或 SELF
+  // 可能的错误码：USER_NOT_FOUND, PERMISSION_DENIED
+  rpc GetUserRoles (GetUserRolesRequest) returns (GetUserRolesResponse) {
+    option (google.api.http) = {
+      get: "/v1/users/{user_id}/roles"
+    };
+    option (cache) = {
+      ttl_seconds: 300
+      key_pattern: "user:{user_id}:roles"
+    };
+  }
+
+  // 分配用户角色
+  // 为用户分配一个或多个角色
+  // 权限要求：ROLE_ASSIGN 或 ADMIN
+  // 可能的错误码：USER_NOT_FOUND, ROLE_NOT_FOUND, PERMISSION_DENIED, INVALID_ARGUMENT
+  rpc AssignRolesToUser (AssignRolesToUserRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      put: "/v1/users/{user_id}/roles"
+      body: "*"
+    };
+    option (rate_limit) = {
+      requests_per_second: 50
+      burst: 100
+    };
+  }
+
+  // 撤销用户角色
+  // 撤销用户的一个或多个角色
+  // 权限要求：ROLE_ASSIGN 或 ADMIN
+  // 可能的错误码：USER_NOT_FOUND, ROLE_NOT_FOUND, PERMISSION_DENIED
+  rpc RevokeRolesFromUser (RevokeRolesFromUserRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      delete: "/v1/users/{user_id}/roles"
+      body: "*"
+    };
+    option (rate_limit) = {
+      requests_per_second: 50
+      burst: 100
+    };
+  }
+
   // 获取角色用户列表
-  rpc GetRoleUsers (GetRoleUsersRequest) returns (GetRoleUsersResponse) {}
-  
-  // 创建临时角色
-  rpc CreateTemporaryRole (CreateTemporaryRoleRequest) returns (Role) {}
-  
-  // 创建动态角色
-  rpc CreateDynamicRole (CreateDynamicRoleRequest) returns (Role) {}
-  
-  // 应用权限模板到角色
-  rpc ApplyTemplateToRole (ApplyTemplateToRoleRequest) returns (google.protobuf.Empty) {}
-  
-  // 检查用户是否满足动态角色条件
-  rpc CheckDynamicRoleCondition (CheckDynamicRoleConditionRequest) returns (CheckDynamicRoleConditionResponse) {}
-  
-  // 获取角色继承树
-  rpc GetRoleInheritanceTree (GetRoleInheritanceTreeRequest) returns (GetRoleInheritanceTreeResponse) {}
+  // 获取拥有指定角色的所有用户
+  // 权限要求：ROLE_READ 或 ADMIN
+  // 可能的错误码：ROLE_NOT_FOUND, PERMISSION_DENIED
+  rpc GetRoleUsers (GetRoleUsersRequest) returns (GetRoleUsersResponse) {
+    option (google.api.http) = {
+      get: "/v1/roles/{role_id}/users"
+    };
+    option (cache) = {
+      ttl_seconds: 300
+      key_pattern: "role:{role_id}:users:{page}:{size}"
+    };
+  }
+
+  // 检查用户是否拥有角色
+  // 检查用户是否拥有指定角色
+  // 权限要求：ROLE_READ 或 ADMIN 或 SELF
+  // 可能的错误码：USER_NOT_FOUND, ROLE_NOT_FOUND, PERMISSION_DENIED
+  rpc CheckUserHasRole (CheckUserHasRoleRequest) returns (CheckUserHasRoleResponse) {
+    option (cache) = {
+      cacheable: true
+      ttl_seconds: 60
+      cache_keys: ["user_id", "role_id"]
+    };
+  }
+
+  // 获取角色继承关系
+  // 获取角色的继承关系树
+  // 权限要求：ROLE_READ 或 ADMIN
+  // 可能的错误码：ROLE_NOT_FOUND, PERMISSION_DENIED
+  rpc GetRoleInheritance (GetRoleInheritanceRequest) returns (GetRoleInheritanceResponse) {
+    option (cache) = {
+      cacheable: true
+      ttl_seconds: 300
+      cache_keys: ["role_id"]
+    };
+  }
+
+  // 更新角色继承关系
+  // 更新角色的继承关系
+  // 权限要求：ROLE_UPDATE 或 ADMIN
+  // 可能的错误码：ROLE_NOT_FOUND, PERMISSION_DENIED, INVALID_ARGUMENT
+  rpc UpdateRoleInheritance (UpdateRoleInheritanceRequest) returns (google.protobuf.Empty) {}
+
+  // 获取角色审计日志
+  // 获取角色的操作审计日志
+  // 权限要求：AUDIT_READ 或 ADMIN
+  // 可能的错误码：ROLE_NOT_FOUND, PERMISSION_DENIED
+  rpc GetRoleAuditLogs (GetRoleAuditLogsRequest) returns (GetRoleAuditLogsResponse) {}
+
+  // 导出角色列表
+  // 导出角色列表
+  // 权限要求：ROLE_READ 或 ADMIN
+  // 可能的错误码：PERMISSION_DENIED
+  rpc ExportRoles (ExportRolesRequest) returns (stream ExportRolesResponse) {}
+
+  // 导入角色列表
+  // 批量导入角色
+  // 权限要求：ROLE_CREATE 或 ADMIN
+  // 可能的错误码：PERMISSION_DENIED, INVALID_ARGUMENT
+  rpc ImportRoles (stream ImportRolesRequest) returns (ImportRolesResponse) {}
 }
 
-// 角色类型
+// 角色类型枚举
 enum RoleType {
-  ROLE_TYPE_UNSPECIFIED = 0 [
-    (gnostic.openapi.v3.property) = {description: "未指定"}
-  ]; // 未指定
-  ROLE_TYPE_SYSTEM = 1 [
-    (gnostic.openapi.v3.property) = {description: "系统角色"}
-  ]; // 系统角色
-  ROLE_TYPE_CUSTOM = 2 [
-    (gnostic.openapi.v3.property) = {description: "自定义角色"}
-  ]; // 自定义角色
-  ROLE_TYPE_DYNAMIC = 3 [
-    (gnostic.openapi.v3.property) = {description: "动态角色"}
-  ]; // 动态角色
-  ROLE_TYPE_TEMPORARY = 4 [
-    (gnostic.openapi.v3.property) = {description: "临时角色"}
-  ]; // 临时角色
+  // 未知类型
+  ROLE_TYPE_UNSPECIFIED = 0;
+  // 系统角色
+  ROLE_TYPE_SYSTEM = 1;
+  // 自定义角色
+  ROLE_TYPE_CUSTOM = 2;
+  // 组织角色
+  ROLE_TYPE_ORGANIZATION = 3;
+  // 部门角色
+  ROLE_TYPE_DEPARTMENT = 4;
+  // 项目角色
+  ROLE_TYPE_PROJECT = 5;
+  // 应用角色
+  ROLE_TYPE_APPLICATION = 6;
 }
 
 // 角色
 message Role {
-  optional uint32 id = 1 [
+  // 角色ID
+  uint32 id = 1 [
     json_name = "id",
     (gnostic.openapi.v3.property) = {description: "角色ID"}
-  ];  // 角色ID
-
-  optional string name = 2 [json_name = "name", (gnostic.openapi.v3.property) = {description: "角色名称"}];  // 角色名称
-
-  optional int32 sort_id = 3 [json_name = "sortId", (gnostic.openapi.v3.property) = {description: "排序编号"}];  // 排序编号
-
-  optional string code = 4 [json_name = "code", (gnostic.openapi.v3.property) = {description: "角色值"}];  // 角色值
+  ];
   
-  optional RoleType role_type = 5 [json_name = "roleType", (gnostic.openapi.v3.property) = {description: "角色类型"}]; // 角色类型
-
-  optional string status = 6 [(gnostic.openapi.v3.property) = {
-    description: "状态"
-    default: { string: "ON" }
-    enum: [{yaml: "ON"}, {yaml: "OFF"}]
-  }];
-
-  optional string remark = 7 [json_name = "remark", (gnostic.openapi.v3.property) = {description: "备注"}];  // 备注
-
-  repeated uint32 menus = 8 [json_name = "menus", (gnostic.openapi.v3.property) = {description: "分配的菜单列表"}];  // 分配的菜单列表
+  // 角色名称
+  string name = 2 [
+    json_name = "name",
+    (gnostic.openapi.v3.property) = {description: "角色名称"}
+  ];
   
-  repeated uint32 permission_ids = 9 [json_name = "permissionIds", (gnostic.openapi.v3.property) = {description: "分配的权限ID列表"}]; // 分配的权限ID列表
+  // 角色代码
+  string code = 3 [
+    json_name = "code",
+    (gnostic.openapi.v3.property) = {description: "角色代码"}
+  ];
   
-  optional uint32 template_id = 10 [json_name = "templateId", (gnostic.openapi.v3.property) = {description: "应用的权限模板ID"}]; // 应用的权限模板ID
+  // 角色类型
+  RoleType type = 4 [
+    json_name = "type",
+    (gnostic.openapi.v3.property) = {description: "角色类型"}
+  ];
   
-  optional uint32 priority = 11 [json_name = "priority", (gnostic.openapi.v3.property) = {description: "优先级(数值越大优先级越高)"}]; // 优先级
+  // 角色描述
+  optional string description = 5 [
+    json_name = "description",
+    (gnostic.openapi.v3.property) = {description: "角色描述"}
+  ];
   
-  optional api.user.service.v1.InheritanceRule inheritance_rule = 12 [json_name = "inheritanceRule", (gnostic.openapi.v3.property) = {description: "继承规则"}]; // 继承规则
+  // 角色状态：ACTIVE, INACTIVE
+  string status = 6 [
+    json_name = "status",
+    (gnostic.openapi.v3.property) = {description: "角色状态：ACTIVE, INACTIVE"}
+  ];
   
-  optional google.protobuf.Timestamp expire_time = 13 [json_name = "expireTime", (gnostic.openapi.v3.property) = {description: "过期时间(仅对临时角色有效)"}]; // 过期时间
+  // 是否默认角色
+  bool is_default = 7 [
+    json_name = "isDefault",
+    (gnostic.openapi.v3.property) = {description: "是否默认角色"}
+  ];
   
-  map<string, string> dynamic_conditions = 14 [json_name = "dynamicConditions", (gnostic.openapi.v3.property) = {description: "动态条件(仅对动态角色有效)"}]; // 动态条件
-
-  optional uint32 create_by = 15 [json_name = "createBy", (gnostic.openapi.v3.property) = {description: "创建者ID"}]; // 创建者ID
-  optional uint32 update_by = 16 [json_name = "updateBy", (gnostic.openapi.v3.property) = {description: "更新者ID"}]; // 更新者ID
-
-  optional uint32 parent_id = 100 [json_name = "parentId", (gnostic.openapi.v3.property) = {description: "父节点ID"}];  // 父节点ID
-  repeated Role children = 101 [json_name = "children", (gnostic.openapi.v3.property) = {description: "子节点树"}];  // 子节点树
-
-  optional google.protobuf.Timestamp create_time = 200 [json_name = "createTime", (gnostic.openapi.v3.property) = {description: "创建时间"}];// 创建时间
-  optional google.protobuf.Timestamp update_time = 201 [json_name = "updateTime", (gnostic.openapi.v3.property) = {description: "更新时间"}];// 更新时间
-  optional google.protobuf.Timestamp delete_time = 202 [json_name = "deleteTime", (gnostic.openapi.v3.property) = {description: "删除时间"}];// 删除时间
+  // 是否系统内置
+  bool is_system = 8 [
+    json_name = "isSystem",
+    (gnostic.openapi.v3.property) = {description: "是否系统内置"}
+  ];
+  
+  // 租户ID
+  optional uint32 tenant_id = 9 [
+    json_name = "tenantId",
+    (gnostic.openapi.v3.property) = {description: "租户ID"}
+  ];
+  
+  // 组织ID
+  optional uint32 organization_id = 10 [
+    json_name = "organizationId",
+    (gnostic.openapi.v3.property) = {description: "组织ID"}
+  ];
+  
+  // 部门ID
+  optional uint32 department_id = 11 [
+    json_name = "departmentId",
+    (gnostic.openapi.v3.property) = {description: "部门ID"}
+  ];
+  
+  // 项目ID
+  optional uint32 project_id = 12 [
+    json_name = "projectId",
+    (gnostic.openapi.v3.property) = {description: "项目ID"}
+  ];
+  
+  // 应用ID
+  optional uint32 application_id = 13 [
+    json_name = "applicationId",
+    (gnostic.openapi.v3.property) = {description: "应用ID"}
+  ];
+  
+  // 父角色ID
+  optional uint32 parent_id = 14 [
+    json_name = "parentId",
+    (gnostic.openapi.v3.property) = {description: "父角色ID"}
+  ];
+  
+  // 角色排序
+  optional int32 sort_order = 15 [
+    json_name = "sortOrder",
+    (gnostic.openapi.v3.property) = {description: "角色排序"}
+  ];
+  
+  // 角色标签
+  repeated string tags = 16 [
+    json_name = "tags",
+    (gnostic.openapi.v3.property) = {description: "角色标签"}
+  ];
+  
+  // 角色用户数量
+  optional uint32 user_count = 17 [
+    json_name = "userCount",
+    (gnostic.openapi.v3.property) = {description: "角色用户数量"}
+  ];
+  
+  // 角色权限数量
+  optional uint32 permission_count = 18 [
+    json_name = "permissionCount",
+    (gnostic.openapi.v3.property) = {description: "角色权限数量"}
+  ];
+  
+  // 角色创建时间
+  google.protobuf.Timestamp created_at = 19 [
+    json_name = "createdAt",
+    (gnostic.openapi.v3.property) = {description: "角色创建时间"}
+  ];
+  
+  // 角色更新时间
+  google.protobuf.Timestamp updated_at = 20 [
+    json_name = "updatedAt",
+    (gnostic.openapi.v3.property) = {description: "角色更新时间"}
+  ];
+  
+  // 审计信息
+  optional AuditInfo audit_info = 21 [
+    json_name = "auditInfo",
+    (gnostic.openapi.v3.property) = {description: "审计信息"}
+  ];
+  
+  // 扩展字段
+  optional google.protobuf.Struct extensions = 22 [
+    json_name = "extensions",
+    (gnostic.openapi.v3.property) = {description: "扩展字段"}
+  ];
 }
 
-// 角色列表 - 答复
-message ListRoleResponse {
-  repeated Role items = 1;
-  uint32 total = 2;
+// 权限
+message Permission {
+  // 权限ID
+  uint32 id = 1 [
+    json_name = "id",
+    (gnostic.openapi.v3.property) = {description: "权限ID"}
+  ];
+  
+  // 权限名称
+  string name = 2 [
+    json_name = "name",
+    (gnostic.openapi.v3.property) = {description: "权限名称"}
+  ];
+  
+  // 权限代码
+  string code = 3 [
+    json_name = "code",
+    (gnostic.openapi.v3.property) = {description: "权限代码"}
+  ];
+  
+  // 权限类型
+  string type = 4 [
+    json_name = "type",
+    (gnostic.openapi.v3.property) = {description: "权限类型"}
+  ];
+  
+  // 权限描述
+  optional string description = 5 [
+    json_name = "description",
+    (gnostic.openapi.v3.property) = {description: "权限描述"}
+  ];
+  
+  // 资源类型
+  optional string resource_type = 6 [
+    json_name = "resourceType",
+    (gnostic.openapi.v3.property) = {description: "资源类型"}
+  ];
+  
+  // 操作类型
+  optional string action = 7 [
+    json_name = "action",
+    (gnostic.openapi.v3.property) = {description: "操作类型"}
+  ];
+  
+  // 是否系统内置
+  bool is_system = 8 [
+    json_name = "isSystem",
+    (gnostic.openapi.v3.property) = {description: "是否系统内置"}
+  ];
+  
+  // 模块
+  optional string module = 9 [
+    json_name = "module",
+    (gnostic.openapi.v3.property) = {description: "模块"}
+  ];
+  
+  // 父权限ID
+  optional uint32 parent_id = 10 [
+    json_name = "parentId",
+    (gnostic.openapi.v3.property) = {description: "父权限ID"}
+  ];
 }
 
-// 角色数据 - 请求
+// 查询角色列表请求
+message ListRolesRequest {
+  // 租户ID
+  optional uint32 tenant_id = 1 [
+    json_name = "tenantId",
+    (gnostic.openapi.v3.property) = {description: "租户ID"}
+  ];
+  
+  // 组织ID
+  optional uint32 organization_id = 2 [
+    json_name = "organizationId",
+    (gnostic.openapi.v3.property) = {description: "组织ID"}
+  ];
+  
+  // 部门ID
+  optional uint32 department_id = 3 [
+    json_name = "departmentId",
+    (gnostic.openapi.v3.property) = {description: "部门ID"}
+  ];
+  
+  // 项目ID
+  optional uint32 project_id = 4 [
+    json_name = "projectId",
+    (gnostic.openapi.v3.property) = {description: "项目ID"}
+  ];
+  
+  // 应用ID
+  optional uint32 application_id = 5 [
+    json_name = "applicationId",
+    (gnostic.openapi.v3.property) = {description: "应用ID"}
+  ];
+  
+  // 角色类型
+  optional RoleType type = 6 [
+    json_name = "type",
+    (gnostic.openapi.v3.property) = {description: "角色类型"}
+  ];
+  
+  // 分页参数
+  uint32 page = 7 [
+    json_name = "page",
+    (gnostic.openapi.v3.property) = {description: "页码，从1开始"}
+  ];
+  
+  uint32 page_size = 8 [
+    json_name = "pageSize",
+    (gnostic.openapi.v3.property) = {description: "每页记录数"}
+  ];
+  
+  // 过滤条件
+  optional google.protobuf.Struct filter = 9 [
+    json_name = "filter",
+    (gnostic.openapi.v3.property) = {description: "过滤条件"}
+  ];
+  
+  // 排序选项
+  repeated SortOption sort = 10 [
+    json_name = "sort",
+    (gnostic.openapi.v3.property) = {description: "排序选项"}
+  ];
+  
+  // 字段掩码
+  optional google.protobuf.FieldMask field_mask = 11 [
+    json_name = "fieldMask",
+    (gnostic.openapi.v3.property) = {description: "字段掩码"}
+  ];
+}
+
+// 查询角色列表响应
+message ListRolesResponse {
+  // 分页信息
+  PaginatedResponse pagination = 1 [
+    json_name = "pagination",
+    (gnostic.openapi.v3.property) = {description: "分页信息"}
+  ];
+  
+  // 角色列表
+  repeated Role roles = 2 [
+    json_name = "roles",
+    (gnostic.openapi.v3.property) = {description: "角色列表"}
+  ];
+}
+
+// 查询角色详情请求
 message GetRoleRequest {
-  uint32 id = 1;
+  // 角色ID
+  uint32 id = 1 [
+    json_name = "id",
+    (gnostic.openapi.v3.property) = {description: "角色ID"}
+  ];
+  
+  // 字段掩码
+  optional google.protobuf.FieldMask field_mask = 2 [
+    json_name = "fieldMask",
+    (gnostic.openapi.v3.property) = {description: "字段掩码"}
+  ];
 }
 
-// 创建角色 - 请求
+// 创建角色请求
 message CreateRoleRequest {
-  optional uint32 operator_id = 1 [
-    (gnostic.openapi.v3.property) = {description: "操作用户ID", read_only: true},
-    json_name = "operatorId"
-  ]; // 操作用户ID
-
-  Role data = 2;
+  // 角色信息
+  Role role = 1 [
+    json_name = "role",
+    (gnostic.openapi.v3.property) = {description: "角色信息"}
+  ];
+  
+  // 权限ID列表
+  repeated uint32 permission_ids = 2 [
+    json_name = "permissionIds",
+    (gnostic.openapi.v3.property) = {description: "权限ID列表"}
+  ];
 }
 
-// 更新角色 - 请求
+// 创建角色响应
+message CreateRoleResponse {
+  // 角色ID
+  uint32 id = 1 [
+    json_name = "id",
+    (gnostic.openapi.v3.property) = {description: "角色ID"}
+  ];
+}
+
+// 更新角色请求
 message UpdateRoleRequest {
-  optional uint32 operator_id = 1 [
-    (gnostic.openapi.v3.property) = {description: "操作用户ID", read_only: true},
-    json_name = "operatorId"
-  ]; // 操作用户ID
-
-  Role data = 2;
-
-  google.protobuf.FieldMask update_mask = 3 [
-    (gnostic.openapi.v3.property) = {
-      description: "要更新的字段列表",
-      example: {yaml : "id,realName,userName"}
-    },
-    json_name = "updateMask"
-  ]; // 要更新的字段列表
-
-  optional bool allow_missing = 4 [
-    (gnostic.openapi.v3.property) = {description: "如果设置为true的时候，资源不存在则会新增(插入)，并且在这种情况下`updateMask`字段将会被忽略。"},
-    json_name = "allowMissing"
-  ]; // 如果设置为true的时候，资源不存在则会新增(插入)，并且在这种情况下`updateMask`字段将会被忽略。
+  // 角色信息
+  Role role = 1 [
+    json_name = "role",
+    (gnostic.openapi.v3.property) = {description: "角色信息"}
+  ];
+  
+  // 更新掩码
+  google.protobuf.FieldMask update_mask = 2 [
+    json_name = "updateMask",
+    (gnostic.openapi.v3.property) = {description: "更新掩码"}
+  ];
 }
 
-// 删除角色 - 请求
+// 删除角色请求
 message DeleteRoleRequest {
-  optional uint32 operator_id = 1 [
-    (gnostic.openapi.v3.property) = {description: "操作用户ID", read_only: true},
-    json_name = "operatorId"
-  ]; // 操作用户ID
-
-  uint32 id = 2;
+  // 角色ID
+  uint32 id = 1 [
+    json_name = "id",
+    (gnostic.openapi.v3.property) = {description: "角色ID"}
+  ];
 }
 
-// 获取角色权限列表 - 请求
+// 批量获取角色请求
+message BatchGetRolesRequest {
+  // 角色ID列表
+  repeated uint32 ids = 1 [
+    json_name = "ids",
+    (gnostic.openapi.v3.property) = {description: "角色ID列表"}
+  ];
+  
+  // 字段掩码
+  optional google.protobuf.FieldMask field_mask = 2 [
+    json_name = "fieldMask",
+    (gnostic.openapi.v3.property) = {description: "字段掩码"}
+  ];
+}
+
+// 批量获取角色响应
+message BatchGetRolesResponse {
+  // 角色列表
+  repeated Role roles = 1 [
+    json_name = "roles",
+    (gnostic.openapi.v3.property) = {description: "角色列表"}
+  ];
+  
+  // 未找到的角色ID列表
+  repeated uint32 not_found_ids = 2 [
+    json_name = "notFoundIds",
+    (gnostic.openapi.v3.property) = {description: "未找到的角色ID列表"}
+  ];
+}
+
+// 批量创建角色请求
+message BatchCreateRolesRequest {
+  // 角色列表
+  repeated Role roles = 1 [
+    json_name = "roles",
+    (gnostic.openapi.v3.property) = {description: "角色列表"}
+  ];
+}
+
+// 批量创建角色响应
+message BatchCreateRolesResponse {
+  // 批量操作结果
+  BatchOperationResult result = 1 [
+    json_name = "result",
+    (gnostic.openapi.v3.property) = {description: "批量操作结果"}
+  ];
+  
+  // 创建成功的角色ID列表
+  repeated uint32 created_ids = 2 [
+    json_name = "createdIds",
+    (gnostic.openapi.v3.property) = {description: "创建成功的角色ID列表"}
+  ];
+}
+
+// 批量更新角色请求
+message BatchUpdateRolesRequest {
+  // 角色列表
+  repeated Role roles = 1 [
+    json_name = "roles",
+    (gnostic.openapi.v3.property) = {description: "角色列表"}
+  ];
+  
+  // 更新掩码
+  google.protobuf.FieldMask update_mask = 2 [
+    json_name = "updateMask",
+    (gnostic.openapi.v3.property) = {description: "更新掩码"}
+  ];
+  
+  // 是否跳过不存在的角色
+  optional bool skip_not_found = 3 [
+    json_name = "skipNotFound",
+    (gnostic.openapi.v3.property) = {description: "是否跳过不存在的角色"}
+  ];
+}
+
+// 批量更新角色响应
+message BatchUpdateRolesResponse {
+  // 批量操作结果
+  BatchOperationResult result = 1 [
+    json_name = "result",
+    (gnostic.openapi.v3.property) = {description: "批量操作结果"}
+  ];
+}
+
+// 批量删除角色请求
+message BatchDeleteRolesRequest {
+  // 角色ID列表
+  repeated uint32 ids = 1 [
+    json_name = "ids",
+    (gnostic.openapi.v3.property) = {description: "角色ID列表"}
+  ];
+  
+  // 是否跳过不存在的角色
+  optional bool skip_not_found = 2 [
+    json_name = "skipNotFound",
+    (gnostic.openapi.v3.property) = {description: "是否跳过不存在的角色"}
+  ];
+}
+
+// 批量删除角色响应
+message BatchDeleteRolesResponse {
+  // 批量操作结果
+  BatchOperationResult result = 1 [
+    json_name = "result",
+    (gnostic.openapi.v3.property) = {description: "批量操作结果"}
+  ];
+}
+
+// 获取角色权限列表请求
 message GetRolePermissionsRequest {
-  uint32 role_id = 1 [json_name = "roleId", (gnostic.openapi.v3.property) = {description: "角色ID"}];
+  // 角色ID
+  uint32 role_id = 1 [
+    json_name = "roleId",
+    (gnostic.openapi.v3.property) = {description: "角色ID"}
+  ];
+  
+  // 是否包含继承的权限
+  optional bool include_inherited = 2 [
+    json_name = "includeInherited",
+    (gnostic.openapi.v3.property) = {description: "是否包含继承的权限"}
+  ];
 }
 
-// 获取角色权限列表 - 响应
+// 获取角色权限列表响应
 message GetRolePermissionsResponse {
-  repeated Permission permissions = 1;
+  // 权限列表
+  repeated Permission permissions = 1 [
+    json_name = "permissions",
+    (gnostic.openapi.v3.property) = {description: "权限列表"}
+  ];
+  
+  // 继承的权限列表
+  repeated Permission inherited_permissions = 2 [
+    json_name = "inheritedPermissions",
+    (gnostic.openapi.v3.property) = {description: "继承的权限列表"}
+  ];
 }
 
-// 获取角色用户列表 - 请求
+// 更新角色权限请求
+message UpdateRolePermissionsRequest {
+  // 角色ID
+  uint32 role_id = 1 [
+    json_name = "roleId",
+    (gnostic.openapi.v3.property) = {description: "角色ID"}
+  ];
+  
+  // 权限ID列表
+  repeated uint32 permission_ids = 2 [
+    json_name = "permissionIds",
+    (gnostic.openapi.v3.property) = {description: "权限ID列表"}
+  ];
+  
+  // 操作类型：ADD, REMOVE, REPLACE
+  string operation = 3 [
+    json_name = "operation",
+    (gnostic.openapi.v3.property) = {description: "操作类型：ADD, REMOVE, REPLACE"}
+  ];
+}
+
+// 获取用户角色列表请求
+message GetUserRolesRequest {
+  // 用户ID
+  uint32 user_id = 1 [
+    json_name = "userId",
+    (gnostic.openapi.v3.property) = {description: "用户ID"}
+  ];
+  
+  // 租户ID
+  optional uint32 tenant_id = 2 [
+    json_name = "tenantId",
+    (gnostic.openapi.v3.property) = {description: "租户ID"}
+  ];
+  
+  // 组织ID
+  optional uint32 organization_id = 3 [
+    json_name = "organizationId",
+    (gnostic.openapi.v3.property) = {description: "组织ID"}
+  ];
+  
+  // 部门ID
+  optional uint32 department_id = 4 [
+    json_name = "departmentId",
+    (gnostic.openapi.v3.property) = {description: "部门ID"}
+  ];
+  
+  // 项目ID
+  optional uint32 project_id = 5 [
+    json_name = "projectId",
+    (gnostic.openapi.v3.property) = {description: "项目ID"}
+  ];
+  
+  // 应用ID
+  optional uint32 application_id = 6 [
+    json_name = "applicationId",
+    (gnostic.openapi.v3.property) = {description: "应用ID"}
+  ];
+  
+  // 角色类型
+  optional RoleType type = 7 [
+    json_name = "type",
+    (gnostic.openapi.v3.property) = {description: "角色类型"}
+  ];
+}
+
+// 获取用户角色列表响应
+message GetUserRolesResponse {
+  // 角色列表
+  repeated Role roles = 1 [
+    json_name = "roles",
+    (gnostic.openapi.v3.property) = {description: "角色列表"}
+  ];
+}
+
+// 分配用户角色请求
+message AssignRolesToUserRequest {
+  // 用户ID
+  uint32 user_id = 1 [
+    json_name = "userId",
+    (gnostic.openapi.v3.property) = {description: "用户ID"}
+  ];
+  
+  // 角色ID列表
+  repeated uint32 role_ids = 2 [
+    json_name = "roleIds",
+    (gnostic.openapi.v3.property) = {description: "角色ID列表"}
+  ];
+}
+
+// 撤销用户角色请求
+message RevokeRolesFromUserRequest {
+  // 用户ID
+  uint32 user_id = 1 [
+    json_name = "userId",
+    (gnostic.openapi.v3.property) = {description: "用户ID"}
+  ];
+  
+  // 角色ID列表
+  repeated uint32 role_ids = 2 [
+    json_name = "roleIds",
+    (gnostic.openapi.v3.property) = {description: "角色ID列表"}
+  ];
+}
+
+// 获取角色用户列表请求
 message GetRoleUsersRequest {
-  uint32 role_id = 1 [json_name = "roleId", (gnostic.openapi.v3.property) = {description: "角色ID"}];
-  pkg.utils.pagination.v1.PagingRequest paging = 2;
+  // 角色ID
+  uint32 role_id = 1 [
+    json_name = "roleId",
+    (gnostic.openapi.v3.property) = {description: "角色ID"}
+  ];
+  
+  // 分页参数
+  uint32 page = 2 [
+    json_name = "page",
+    (gnostic.openapi.v3.property) = {description: "页码，从1开始"}
+  ];
+  
+  uint32 page_size = 3 [
+    json_name = "pageSize",
+    (gnostic.openapi.v3.property) = {description: "每页记录数"}
+  ];
+  
+  // 过滤条件
+  optional google.protobuf.Struct filter = 4 [
+    json_name = "filter",
+    (gnostic.openapi.v3.property) = {description: "过滤条件"}
+  ];
+  
+  // 排序选项
+  repeated SortOption sort = 5 [
+    json_name = "sort",
+    (gnostic.openapi.v3.property) = {description: "排序选项"}
+  ];
 }
 
-// 用户状态（复制自user.proto，避免循环依赖）
-enum UserStatus {
-  OFF = 0;
-  ON = 1;
-}
-
-// 角色用户信息（简化版，避免循环依赖）
-message RoleUser {
-  uint32 id = 1;
-  string user_name = 2 [json_name = "userName"];
-  string real_name = 3 [json_name = "realName"];
-  string nick_name = 4 [json_name = "nickName"];
-  string avatar = 5;
-  string email = 6;
-  string mobile = 7;
-  UserStatus status = 8;
-}
-
-// 获取角色用户列表 - 响应
+// 获取角色用户列表响应
 message GetRoleUsersResponse {
-  repeated RoleUser users = 1;
-  uint32 total = 2;
-}
-
-// 创建临时角色 - 请求
-message CreateTemporaryRoleRequest {
-  optional uint32 operator_id = 1 [
-    (gnostic.openapi.v3.property) = {description: "操作用户ID", read_only: true},
-    json_name = "operatorId"
-  ]; // 操作用户ID
+  // 分页信息
+  PaginatedResponse pagination = 1 [
+    json_name = "pagination",
+    (gnostic.openapi.v3.property) = {description: "分页信息"}
+  ];
   
-  string name = 2;
-  string code = 3;
-  repeated uint32 permission_ids = 4 [json_name = "permissionIds"];
-  optional uint32 template_id = 5 [json_name = "templateId"]; // 可选，应用权限模板
-  google.protobuf.Timestamp expire_time = 6 [json_name = "expireTime"]; // 过期时间
-  optional string remark = 7;
-}
-
-// 创建动态角色 - 请求
-message CreateDynamicRoleRequest {
-  optional uint32 operator_id = 1 [
-    (gnostic.openapi.v3.property) = {description: "操作用户ID", read_only: true},
-    json_name = "operatorId"
-  ]; // 操作用户ID
+  // 用户列表
+  message RoleUser {
+    // 用户ID
+    uint32 user_id = 1 [
+      json_name = "userId",
+      (gnostic.openapi.v3.property) = {description: "用户ID"}
+    ];
+    
+    // 用户名
+    string username = 2 [
+      json_name = "username",
+      (gnostic.openapi.v3.property) = {description: "用户名"}
+    ];
+    
+    // 真实姓名
+    optional string real_name = 3 [
+      json_name = "realName",
+      (gnostic.openapi.v3.property) = {description: "真实姓名"}
+    ];
+    
+    // 邮箱
+    optional string email = 4 [
+      json_name = "email",
+      (gnostic.openapi.v3.property) = {description: "邮箱"}
+    ];
+    
+    // 手机号
+    optional string mobile = 5 [
+      json_name = "mobile",
+      (gnostic.openapi.v3.property) = {description: "手机号"}
+    ];
+    
+    // 头像
+    optional string avatar = 6 [
+      json_name = "avatar",
+      (gnostic.openapi.v3.property) = {description: "头像"}
+    ];
+    
+    // 分配时间
+    google.protobuf.Timestamp assigned_at = 7 [
+      json_name = "assignedAt",
+      (gnostic.openapi.v3.property) = {description: "分配时间"}
+    ];
+  }
   
-  string name = 2;
-  string code = 3;
-  repeated uint32 permission_ids = 4 [json_name = "permissionIds"];
-  optional uint32 template_id = 5 [json_name = "templateId"]; // 可选，应用权限模板
-  map<string, string> dynamic_conditions = 6 [json_name = "dynamicConditions"]; // 动态条件
-  optional string remark = 7;
+  // 用户列表
+  repeated RoleUser users = 2 [
+    json_name = "users",
+    (gnostic.openapi.v3.property) = {description: "用户列表"}
+  ];
 }
 
-// 应用权限模板到角色 - 请求
-message ApplyTemplateToRoleRequest {
-  optional uint32 operator_id = 1 [
-    (gnostic.openapi.v3.property) = {description: "操作用户ID", read_only: true},
-    json_name = "operatorId"
-  ]; // 操作用户ID
+// 检查用户是否拥有角色请求
+message CheckUserHasRoleRequest {
+  // 用户ID
+  uint32 user_id = 1 [
+    json_name = "userId",
+    (gnostic.openapi.v3.property) = {description: "用户ID"}
+  ];
   
-  uint32 role_id = 2 [json_name = "roleId"];
-  uint32 template_id = 3 [json_name = "templateId"];
-  bool override_existing = 4 [json_name = "overrideExisting"]; // 是否覆盖现有权限
+  // 角色ID
+  uint32 role_id = 2 [
+    json_name = "roleId",
+    (gnostic.openapi.v3.property) = {description: "角色ID"}
+  ];
+  
+  // 是否检查继承的角色
+  optional bool check_inherited = 3 [
+    json_name = "checkInherited",
+    (gnostic.openapi.v3.property) = {description: "是否检查继承的角色"}
+  ];
 }
 
-// 检查用户是否满足动态角色条件 - 请求
-message CheckDynamicRoleConditionRequest {
-  uint32 user_id = 1 [json_name = "userId"];
-  uint32 role_id = 2 [json_name = "roleId"];
-  map<string, string> context = 3; // 上下文信息，用于条件表达式求值
+// 检查用户是否拥有角色响应
+message CheckUserHasRoleResponse {
+  // 是否拥有角色
+  bool has_role = 1 [
+    json_name = "hasRole",
+    (gnostic.openapi.v3.property) = {description: "是否拥有角色"}
+  ];
+  
+  // 是否通过继承获得
+  bool is_inherited = 2 [
+    json_name = "isInherited",
+    (gnostic.openapi.v3.property) = {description: "是否通过继承获得"}
+  ];
 }
 
-// 检查用户是否满足动态角色条件 - 响应
-message CheckDynamicRoleConditionResponse {
-  bool matches = 1;
-  string reason = 2; // 不匹配原因
+// 获取角色继承关系请求
+message GetRoleInheritanceRequest {
+  // 角色ID
+  uint32 role_id = 1 [
+    json_name = "roleId",
+    (gnostic.openapi.v3.property) = {description: "角色ID"}
+  ];
+  
+  // 继承方向：PARENTS, CHILDREN, BOTH
+  string direction = 2 [
+    json_name = "direction",
+    (gnostic.openapi.v3.property) = {description: "继承方向：PARENTS, CHILDREN, BOTH"}
+  ];
+  
+  // 最大深度
+  optional uint32 max_depth = 3 [
+    json_name = "maxDepth",
+    (gnostic.openapi.v3.property) = {description: "最大深度"}
+  ];
 }
 
-// 获取角色继承树 - 请求
-message GetRoleInheritanceTreeRequest {
-  uint32 role_id = 1 [json_name = "roleId"];
-  optional uint32 max_depth = 2 [json_name = "maxDepth"]; // 最大深度，默认不限制
+// 获取角色继承关系响应
+message GetRoleInheritanceResponse {
+  // 角色节点
+  message RoleNode {
+    // 角色ID
+    uint32 id = 1 [
+      json_name = "id",
+      (gnostic.openapi.v3.property) = {description: "角色ID"}
+    ];
+    
+    // 角色名称
+    string name = 2 [
+      json_name = "name",
+      (gnostic.openapi.v3.property) = {description: "角色名称"}
+    ];
+    
+    // 角色代码
+    string code = 3 [
+      json_name = "code",
+      (gnostic.openapi.v3.property) = {description: "角色代码"}
+    ];
+    
+    // 角色类型
+    RoleType type = 4 [
+      json_name = "type",
+      (gnostic.openapi.v3.property) = {description: "角色类型"}
+    ];
+    
+    // 父角色
+    repeated RoleNode parents = 5 [
+      json_name = "parents",
+      (gnostic.openapi.v3.property) = {description: "父角色"}
+    ];
+    
+    // 子角色
+    repeated RoleNode children = 6 [
+      json_name = "children",
+      (gnostic.openapi.v3.property) = {description: "子角色"}
+    ];
+  }
+  
+  // 角色继承树
+  RoleNode role_tree = 1 [
+    json_name = "roleTree",
+    (gnostic.openapi.v3.property) = {description: "角色继承树"}
+  ];
 }
 
-// 角色继承节点
-message RoleInheritanceNode {
-  uint32 id = 1;
-  string name = 2;
-  string code = 3;
-  RoleType role_type = 4 [json_name = "roleType"];
-  api.user.service.v1.InheritanceRule inheritance_rule = 5 [json_name = "inheritanceRule"];
-  repeated RoleInheritanceNode children = 6;
+// 更新角色继承关系请求
+message UpdateRoleInheritanceRequest {
+  // 角色ID
+  uint32 role_id = 1 [
+    json_name = "roleId",
+    (gnostic.openapi.v3.property) = {description: "角色ID"}
+  ];
+  
+  // 父角色ID列表
+  repeated uint32 parent_role_ids = 2 [
+    json_name = "parentRoleIds",
+    (gnostic.openapi.v3.property) = {description: "父角色ID列表"}
+  ];
+  
+  // 操作类型：ADD, REMOVE, REPLACE
+  string operation = 3 [
+    json_name = "operation",
+    (gnostic.openapi.v3.property) = {description: "操作类型：ADD, REMOVE, REPLACE"}
+  ];
 }
 
-// 获取角色继承树 - 响应
-message GetRoleInheritanceTreeResponse {
-  RoleInheritanceNode root = 1;
+// 获取角色审计日志请求
+message GetRoleAuditLogsRequest {
+  // 角色ID
+  uint32 role_id = 1 [
+    json_name = "roleId",
+    (gnostic.openapi.v3.property) = {description: "角色ID"}
+  ];
+  
+  // 开始时间
+  optional google.protobuf.Timestamp start_time = 2 [
+    json_name = "startTime",
+    (gnostic.openapi.v3.property) = {description: "开始时间"}
+  ];
+  
+  // 结束时间
+  optional google.protobuf.Timestamp end_time = 3 [
+    json_name = "endTime",
+    (gnostic.openapi.v3.property) = {description: "结束时间"}
+  ];
+  
+  // 操作类型
+  optional string operation_type = 4 [
+    json_name = "operationType",
+    (gnostic.openapi.v3.property) = {description: "操作类型"}
+  ];
+  
+  // 操作者ID
+  optional uint32 operator_id = 5 [
+    json_name = "operatorId",
+    (gnostic.openapi.v3.property) = {description: "操作者ID"}
+  ];
+  
+  // 分页参数
+  uint32 page = 6 [
+    json_name = "page",
+    (gnostic.openapi.v3.property) = {description: "页码，从1开始"}
+  ];
+  
+  uint32 page_size = 7 [
+    json_name = "pageSize",
+    (gnostic.openapi.v3.property) = {description: "每页记录数"}
+  ];
+}
+
+// 获取角色审计日志响应
+message GetRoleAuditLogsResponse {
+  // 分页信息
+  PaginatedResponse pagination = 1 [
+    json_name = "pagination",
+    (gnostic.openapi.v3.property) = {description: "分页信息"}
+  ];
+  
+  // 审计日志
+  message AuditLogEntry {
+    // 日志ID
+    string id = 1 [
+      json_name = "id",
+      (gnostic.openapi.v3.property) = {description: "日志ID"}
+    ];
+    
+    // 角色ID
+    uint32 role_id = 2 [
+      json_name = "roleId",
+      (gnostic.openapi.v3.property) = {description: "角色ID"}
+    ];
+    
+    // 操作类型
+    string operation_type = 3 [
+      json_name = "operationType",
+      (gnostic.openapi.v3.property) = {description: "操作类型"}
+    ];
+    
+    // 操作时间
+    google.protobuf.Timestamp operation_time = 4 [
+      json_name = "operationTime",
+      (gnostic.openapi.v3.property) = {description: "操作时间"}
+    ];
+    
+    // 操作者ID
+    uint32 operator_id = 5 [
+      json_name = "operatorId",
+      (gnostic.openapi.v3.property) = {description: "操作者ID"}
+    ];
+    
+    // 操作者名称
+    string operator_name = 6 [
+      json_name = "operatorName",
+      (gnostic.openapi.v3.property) = {description: "操作者名称"}
+    ];
+    
+    // 操作IP
+    string ip_address = 7 [
+      json_name = "ipAddress",
+      (gnostic.openapi.v3.property) = {description: "操作IP"}
+    ];
+    
+    // 操作详情
+    google.protobuf.Struct details = 8 [
+      json_name = "details",
+      (gnostic.openapi.v3.property) = {description: "操作详情"}
+    ];
+  }
+  
+  // 审计日志列表
+  repeated AuditLogEntry logs = 2 [
+    json_name = "logs",
+    (gnostic.openapi.v3.property) = {description: "审计日志列表"}
+  ];
+}
+
+// 导出角色列表请求
+message ExportRolesRequest {
+  // 导出格式：CSV, EXCEL, JSON
+  string format = 1 [
+    json_name = "format",
+    (gnostic.openapi.v3.property) = {description: "导出格式：CSV, EXCEL, JSON"}
+  ];
+  
+  // 过滤条件
+  optional google.protobuf.Struct filter = 2 [
+    json_name = "filter",
+    (gnostic.openapi.v3.property) = {description: "过滤条件"}
+  ];
+  
+  // 租户ID
+  optional uint32 tenant_id = 3 [
+    json_name = "tenantId",
+    (gnostic.openapi.v3.property) = {description: "租户ID"}
+  ];
+  
+  // 组织ID
+  optional uint32 organization_id = 4 [
+    json_name = "organizationId",
+    (gnostic.openapi.v3.property) = {description: "组织ID"}
+  ];
+  
+  // 角色类型
+  optional RoleType type = 5 [
+    json_name = "type",
+    (gnostic.openapi.v3.property) = {description: "角色类型"}
+  ];
+}
+
+// 导出角色列表响应
+message ExportRolesResponse {
+  // 数据块
+  bytes data_chunk = 1 [
+    json_name = "dataChunk",
+    (gnostic.openapi.v3.property) = {description: "数据块"}
+  ];
+  
+  // 是否最后一块
+  bool is_last_chunk = 2 [
+    json_name = "isLastChunk",
+    (gnostic.openapi.v3.property) = {description: "是否最后一块"}
+  ];
+}
+
+// 导入角色列表请求
+message ImportRolesRequest {
+  // 导入格式：CSV, EXCEL, JSON
+  string format = 1 [
+    json_name = "format",
+    (gnostic.openapi.v3.property) = {description: "导入格式：CSV, EXCEL, JSON"}
+  ];
+  
+  // 数据块
+  bytes data_chunk = 2 [
+    json_name = "dataChunk",
+    (gnostic.openapi.v3.property) = {description: "数据块"}
+  ];
+  
+  // 是否最后一块
+  bool is_last_chunk = 3 [
+    json_name = "isLastChunk",
+    (gnostic.openapi.v3.property) = {description: "是否最后一块"}
+  ];
+  
+  // 租户ID
+  optional uint32 tenant_id = 4 [
+    json_name = "tenantId",
+    (gnostic.openapi.v3.property) = {description: "租户ID"}
+  ];
+  
+  // 组织ID
+  optional uint32 organization_id = 5 [
+    json_name = "organizationId",
+    (gnostic.openapi.v3.property) = {description: "组织ID"}
+  ];
+}
+
+// 导入角色列表响应
+message ImportRolesResponse {
+  // 导入结果
+  message ImportResult {
+    // 总记录数
+    uint32 total_count = 1 [
+      json_name = "totalCount",
+      (gnostic.openapi.v3.property) = {description: "总记录数"}
+    ];
+    
+    // 成功记录数
+    uint32 success_count = 2 [
+      json_name = "successCount",
+      (gnostic.openapi.v3.property) = {description: "成功记录数"}
+    ];
+    
+    // 失败记录数
+    uint32 failure_count = 3 [
+      json_name = "failureCount",
+      (gnostic.openapi.v3.property) = {description: "失败记录数"}
+    ];
+    
+    // 错误记录
+    message ErrorRecord {
+      // 行号
+      uint32 row_number = 1 [
+        json_name = "rowNumber",
+        (gnostic.openapi.v3.property) = {description: "行号"}
+      ];
+      
+      // 错误消息
+      string error_message = 2 [
+        json_name = "errorMessage",
+        (gnostic.openapi.v3.property) = {description: "错误消息"}
+      ];
+      
+      // 原始数据
+      string raw_data = 3 [
+        json_name = "rawData",
+        (gnostic.openapi.v3.property) = {description: "原始数据"}
+      ];
+    }
+    
+    // 错误记录列表
+    repeated ErrorRecord error_records = 4 [
+      json_name = "errorRecords",
+      (gnostic.openapi.v3.property) = {description: "错误记录列表"}
+    ];
+  }
+  
+  // 导入结果
+  ImportResult result = 1 [
+    json_name = "result",
+    (gnostic.openapi.v3.property) = {description: "导入结果"}
+  ];
 }
