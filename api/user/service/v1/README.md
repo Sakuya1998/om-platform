@@ -43,112 +43,176 @@
 ### 用户管理 API
 - `GET /v1/users` - 获取用户列表
 - `GET /v1/users/{user_id}` - 获取单个用户
+- `GET /v1/users/by-username/{username}` - 根据用户名获取用户
+- `POST /v1/users/by-ids` - 批量获取用户信息
 - `POST /v1/users` - 创建用户
 - `PUT /v1/users/{user_id}` - 更新用户
 - `DELETE /v1/users/{user_id}` - 删除用户
 - `POST /v1/users/batch` - 批量创建用户
 - `PUT /v1/users/batch` - 批量更新用户
 - `DELETE /v1/users/batch` - 批量删除用户
+- `GET /v1/users/exists` - 检查用户是否存在
+- `GET /v1/users/{user_id}/roles` - 获取用户角色
+- `POST /v1/users/{user_id}/roles` - 分配用户角色
+- `DELETE /v1/users/{user_id}/roles` - 撤销用户角色
+- `GET /v1/users/{user_id}/permissions` - 获取用户有效权限
+- `GET /v1/users/{user_id}/permissions/{permission_code}` - 检查用户权限
+- `DELETE /v1/users/{user_id}/permissions/cache` - 清除用户权限缓存
+- `GET /v1/users/{user_id}/dynamic-roles` - 获取用户动态角色
+- `GET /v1/users/{user_id}/permission-audit-logs` - 获取用户权限审计日志
+- `GET /v1/users/stream` - 流式获取用户列表
+- `POST /v1/users/export` - 流式导出用户数据
+- `POST /v1/users/import` - 流式导入用户数据
 
 ### 认证管理 API
 - `POST /v1/auth/login` - 用户登录
 - `POST /v1/auth/logout` - 用户登出
 - `POST /v1/auth/refresh` - 刷新令牌
+- `POST /v1/auth/validate` - 验证令牌
+- `POST /v1/auth/change-password` - 修改密码
+- `POST /v1/auth/reset-password` - 重置密码
+- `POST /v1/auth/send-reset-code` - 发送密码重置验证码
+- `POST /v1/auth/sessions` - 创建会话
 - `GET /v1/auth/sessions/{session_id}` - 获取会话信息
-- `DELETE /v1/auth/sessions/{session_id}` - 删除会话
+- `PUT /v1/auth/sessions/{session_id}` - 更新会话
+- `DELETE /v1/auth/sessions/{session_id}` - 终止会话
+- `POST /v1/auth/sessions/batch-terminate` - 批量终止会话
+- `GET /v1/auth/users/{user_id}/sessions` - 查询用户会话
+- `GET /v1/auth/users/{user_id}/login-history` - 获取登录历史
+- `POST /v1/auth/users/{user_id}/two-factor` - 设置双因素认证
+- `POST /v1/auth/verify-two-factor` - 验证双因素认证
 
-### 权限管理 API
+### 角色管理 API
 - `GET /v1/roles` - 获取角色列表
 - `GET /v1/roles/{role_id}` - 获取角色详情
 - `POST /v1/roles` - 创建角色
 - `PUT /v1/roles/{role_id}` - 更新角色
 - `DELETE /v1/roles/{role_id}` - 删除角色
-- `GET /v1/users/{user_id}/roles` - 获取用户角色
-- `PUT /v1/users/{user_id}/roles` - 分配用户角色
-- `DELETE /v1/users/{user_id}/roles` - 撤销用户角色
+- `POST /v1/roles/by-ids` - 批量获取角色信息
+- `POST /v1/roles/batch` - 批量创建角色
+- `PUT /v1/roles/batch` - 批量更新角色
+- `DELETE /v1/roles/batch` - 批量删除角色
+- `GET /v1/roles/{role_id}/permissions` - 获取角色权限
+- `POST /v1/roles/{role_id}/permissions` - 分配角色权限
+- `DELETE /v1/roles/{role_id}/permissions` - 撤销角色权限
+- `GET /v1/roles/{role_id}/users` - 获取角色用户列表
+- `GET /v1/roles/{role_id}/audit-logs` - 获取角色审计日志
 
-### 权限检查 API
+### 权限管理 API
 - `GET /v1/permissions` - 获取权限列表
+- `GET /v1/permissions/{permission_id}` - 获取权限详情
+- `POST /v1/permissions` - 创建权限
+- `PUT /v1/permissions/{permission_id}` - 更新权限
+- `DELETE /v1/permissions/{permission_id}` - 删除权限
+- `POST /v1/permissions/by-ids` - 批量获取权限信息
+- `POST /v1/permissions/batch` - 批量创建权限
+- `PUT /v1/permissions/batch` - 批量更新权限
+- `DELETE /v1/permissions/batch` - 批量删除权限
 - `POST /v1/permissions/check` - 检查权限
 - `POST /v1/permissions/batch-check` - 批量检查权限
-- `GET /v1/users/{user_id}/permissions` - 获取用户权限
+- `GET /v1/permissions/tree` - 获取权限树
+- `GET /v1/permissions/{permission_id}/children` - 获取子权限列表
+- `GET /v1/permissions/{permission_id}/audit-logs` - 获取权限审计日志
 
 ## 服务列表
 
 ### 核心服务
 
-1. **UserService** (`user.proto`)
+1. **UserService** (`user.proto`) - ✅ 已完成HTTP映射
    - 用户 CRUD 操作
    - 批量用户管理
    - 用户角色和权限
    - 流式数据处理
+   - 权限缓存管理
+   - 动态角色计算
+   - 权限审计日志
 
-2. **AuthenticationService** (`authentication.proto`)
-   - 用户认证
-   - 会话管理
+2. **AuthenticationService** (`authentication.proto`) - ✅ 已完成HTTP映射
+   - 用户认证（多种认证方式）
+   - 令牌管理（访问令牌、刷新令牌）
+   - 会话管理（创建、查询、更新、终止）
+   - 密码管理（修改、重置、验证码）
    - 双因素认证
-   - 登录历史
+   - 登录历史记录
 
-3. **AccountService** (`account.proto`)
+3. **AccountService** (`account.proto`) - ✅ 已完成HTTP映射
    - 账户状态管理
-   - 安全设置
-   - 密码策略
-   - 第三方账号绑定
+   - 账户锁定/解锁
+   - 账户启用/禁用
+   - 账户配置管理
+   - 批量账户操作
 
 ### 组织架构服务
 
-4. **OrganizationService** (`organization.proto`)
-   - 组织管理
-   - 组织结构
+4. **OrganizationService** (`organization.proto`) - ✅ 已完成HTTP映射
+   - 组织管理（CRUD操作）
+   - 组织结构管理
    - 成员管理
-   - 批量操作
+   - 批量操作（创建、更新、删除、查询）
 
-5. **DepartmentService** (`department.proto`)
-   - 部门管理
-   - 部门层级
-   - 成员分配
+5. **DepartmentService** (`department.proto`) - ✅ 已完成HTTP映射
+   - 部门管理（CRUD操作）
+   - 部门层级结构
+   - 成员分配管理
+   - 批量操作支持
    - 数据导入导出
 
 ### 权限管理服务
 
-6. **RoleService** (`role.proto`)
-   - 角色定义
-   - 角色继承
-   - 权限分配
-   - 批量管理
+6. **RoleService** (`role.proto`) - ✅ 已完成HTTP映射
+   - 角色定义和管理
+   - 角色继承关系
+   - 角色权限分配
+   - 批量角色管理
+   - 角色用户关联
+   - 角色审计日志
 
-7. **PermissionService** (`permission.proto`)
-   - 权限定义
-   - 权限树管理
-   - 资源权限
-   - 权限检查
+7. **PermissionService** (`permission.proto`) - ✅ 已完成HTTP映射
+   - 权限定义和管理
+   - 权限树结构管理
+   - 资源权限控制
+   - 权限检查和验证
+   - 批量权限操作
+   - 权限审计追踪
 
 ### 多租户和集成服务
 
-8. **TenantService** (`tenant.proto`)
-   - 租户管理
-   - 租户配置
-   - 资源隔离
-   - 统计分析
+8. **TenantService** (`tenant.proto`) - ✅ 已完成HTTP映射
+   - 租户管理（CRUD操作）
+   - 租户配置管理
+   - 租户启用/禁用
+   - 资源隔离控制
+   - 租户统计分析
 
-9. **IdentityProviderService** (`identity_provider.proto`)
+9. **IdentityProviderService** (`identity_provider.proto`) - ✅ 已完成HTTP映射
    - 身份提供商管理
    - LDAP/SAML/OIDC 集成
-   - 用户同步
-   - 连接测试
+   - 用户同步功能
+   - 连接测试和验证
+   - 身份提供商启用/禁用
+   - 同步状态监控
+   - 审计日志记录
 
-### 通用组件
+### 审计和通用组件
 
-10. **Common** (`common.proto`)
+10. **AuditService** (`audit.proto`) - ✅ 已完成HTTP映射
+    - 审计日志记录
+    - 审计日志查询
+    - 操作追踪
+    - 合规性报告
+
+11. **Common** (`common.proto`) - ✅ 通用组件
     - 通用枚举和结构
     - 分页和排序
     - 审计信息
     - 批量操作结果
-
-11. **Error Codes** (`error_codes.proto`)
-    - 统一错误码
-    - 错误响应结构
     - 扩展选项定义
+
+12. **Error Codes** (`error_codes.proto`) - ✅ 错误处理
+    - 统一错误码枚举
+    - 错误响应结构
+    - 限流和缓存选项
+    - 熔断器配置
 
 ## API 设计特性
 
