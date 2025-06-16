@@ -2,243 +2,103 @@ syntax = "proto3";
 
 package api.user.service.v1;
 
-import "google/protobuf/descriptor.proto";
-import "gnostic/openapi/v3/annotations.proto";
+//import "api/user/service/v1/common.proto";
 
-option go_package = "om-platform/api/user/service/v1;userv1";
+// Go语言包路径配置
+option go_package = "github.com/Sakuya1998/om-platform/api/user/service/v1;userv1";
+// Java包路径配置
+option java_package = "com.omplatform.api.user.service.v1";
+// Java多文件生成配置
 option java_multiple_files = true;
-option java_package = "api.user.service.v1";
+// C#命名空间配置
+option csharp_namespace = "OmPlatform.Api.User.Service.V1";
+// PHP命名空间配置
+option php_namespace = "OmPlatform\\Api\\User\\Service\\V1";
+// Ruby包配置
+option ruby_package = "OmPlatform::Api::User::Service::V1";
 
 // 统一错误码定义
 // 错误码按模块划分范围，便于管理和排查问题
 enum ErrorCode {
   // 通用错误码 (0-999)
-  ERROR_CODE_UNSPECIFIED = 0 [
-    (gnostic.openapi.v3.property) = {description: "未指定错误"}
-  ];
-  ERROR_CODE_INTERNAL = 1 [
-    (gnostic.openapi.v3.property) = {description: "内部服务错误"}
-  ];
-  ERROR_CODE_INVALID_ARGUMENT = 2 [
-    (gnostic.openapi.v3.property) = {description: "无效参数"}
-  ];
-  ERROR_CODE_NOT_FOUND = 3 [
-    (gnostic.openapi.v3.property) = {description: "资源不存在"}
-  ];
-  ERROR_CODE_PERMISSION_DENIED = 4 [
-    (gnostic.openapi.v3.property) = {description: "权限不足"}
-  ];
-  ERROR_CODE_UNAUTHENTICATED = 5 [
-    (gnostic.openapi.v3.property) = {description: "未认证"}
-  ];
-  ERROR_CODE_RESOURCE_EXHAUSTED = 6 [
-    (gnostic.openapi.v3.property) = {description: "资源耗尽"}
-  ];
-  ERROR_CODE_FAILED_PRECONDITION = 7 [
-    (gnostic.openapi.v3.property) = {description: "前置条件失败"}
-  ];
-  ERROR_CODE_ABORTED = 8 [
-    (gnostic.openapi.v3.property) = {description: "操作中止"}
-  ];
-  ERROR_CODE_DEADLINE_EXCEEDED = 9 [
-    (gnostic.openapi.v3.property) = {description: "超时"}
-  ];
-  ERROR_CODE_ALREADY_EXISTS = 10 [
-    (gnostic.openapi.v3.property) = {description: "资源已存在"}
-  ];
-  
+  ERROR_CODE_UNSPECIFIED = 0; // 未指定错误
+  ERROR_CODE_INTERNAL_ERROR = 1; // 内部服务错误
+  ERROR_CODE_INVALID_ARGUMENT = 2; // 无效参数
+  ERROR_CODE_PERMISSION_DENIED = 3; // 权限不足
+  ERROR_CODE_NOT_FOUND = 4; // 资源不存在
+  ERROR_CODE_ALREADY_EXISTS = 5; // 资源已存在
+  ERROR_CODE_RESOURCE_EXHAUSTED = 6; // 资源耗尽
+  ERROR_CODE_FAILED_PRECONDITION = 7; // 前置条件失败
+  ERROR_CODE_ABORTED = 8; // 操作中止
+  ERROR_CODE_OUT_OF_RANGE = 9; // 参数超出范围
+  ERROR_CODE_UNIMPLEMENTED = 10; // 功能未实现
+  ERROR_CODE_UNAVAILABLE = 11; // 服务不可用
+  ERROR_CODE_DATA_LOSS = 12; // 数据丢失
+  ERROR_CODE_UNAUTHENTICATED = 13; // 未认证
+
   // 用户相关错误码 (1000-1999)
-  ERROR_CODE_USER_NOT_FOUND = 1000 [
-    (gnostic.openapi.v3.property) = {description: "用户不存在"}
-  ];
-  ERROR_CODE_USER_ALREADY_EXISTS = 1001 [
-    (gnostic.openapi.v3.property) = {description: "用户已存在"}
-  ];
-  ERROR_CODE_USER_DISABLED = 1002 [
-    (gnostic.openapi.v3.property) = {description: "用户已禁用"}
-  ];
-  ERROR_CODE_USER_LOCKED = 1003 [
-    (gnostic.openapi.v3.property) = {description: "用户已锁定"}
-  ];
-  ERROR_CODE_USER_DELETED = 1004 [
-    (gnostic.openapi.v3.property) = {description: "用户已删除"}
-  ];
-  
+  ERROR_CODE_USER_NOT_FOUND = 1000; // 用户不存在
+  ERROR_CODE_USER_ALREADY_EXISTS = 1001; // 用户已存在
+  ERROR_CODE_USER_INVALID_USERNAME = 1002; // 用户名格式无效
+  ERROR_CODE_USER_INVALID_EMAIL = 1003; // 邮箱格式无效
+  ERROR_CODE_USER_INVALID_PHONE = 1004; // 手机号格式无效
+  ERROR_CODE_USER_INVALID_PASSWORD = 1005; // 密码格式无效
+  ERROR_CODE_USER_DISABLED = 1006; // 用户已禁用
+  ERROR_CODE_USER_LOCKED = 1007; // 用户已锁定
+  ERROR_CODE_USER_DELETED = 1008; // 用户已删除
+
   // 认证相关错误码 (2000-2999)
-  ERROR_CODE_AUTHENTICATION_FAILED = 2000 [
-    (gnostic.openapi.v3.property) = {description: "认证失败"}
-  ];
-  ERROR_CODE_TOKEN_EXPIRED = 2001 [
-    (gnostic.openapi.v3.property) = {description: "令牌已过期"}
-  ];
-  ERROR_CODE_TOKEN_INVALID = 2002 [
-    (gnostic.openapi.v3.property) = {description: "令牌无效"}
-  ];
-  ERROR_CODE_TOKEN_REVOKED = 2003 [
-    (gnostic.openapi.v3.property) = {description: "令牌已撤销"}
-  ];
-  ERROR_CODE_SESSION_EXPIRED = 2004 [
-    (gnostic.openapi.v3.property) = {description: "会话已过期"}
-  ];
-  ERROR_CODE_SESSION_INVALID = 2005 [
-    (gnostic.openapi.v3.property) = {description: "会话无效"}
-  ];
-  ERROR_CODE_PASSWORD_EXPIRED = 2006 [
-    (gnostic.openapi.v3.property) = {description: "密码已过期"}
-  ];
-  ERROR_CODE_PASSWORD_INCORRECT = 2007 [
-    (gnostic.openapi.v3.property) = {description: "密码不正确"}
-  ];
-  ERROR_CODE_MFA_REQUIRED = 2008 [
-    (gnostic.openapi.v3.property) = {description: "需要多因素认证"}
-  ];
-  ERROR_CODE_MFA_INVALID = 2009 [
-    (gnostic.openapi.v3.property) = {description: "多因素认证无效"}
-  ];
-  
+  ERROR_CODE_AUTH_INVALID_CREDENTIALS = 2000; // 认证凭据无效
+  ERROR_CODE_AUTH_TOKEN_EXPIRED = 2001; // 令牌已过期
+  ERROR_CODE_AUTH_TOKEN_INVALID = 2002; // 令牌无效
+  ERROR_CODE_AUTH_CAPTCHA_REQUIRED = 2003; // 需要验证码
+  ERROR_CODE_AUTH_CAPTCHA_INVALID = 2004; // 验证码无效
+  ERROR_CODE_AUTH_MFA_REQUIRED = 2005; // 需要多因素认证
+  ERROR_CODE_AUTH_MFA_INVALID = 2006; // 多因素认证无效
+  ERROR_CODE_AUTH_PASSWORD_EXPIRED = 2007; // 密码已过期
+  ERROR_CODE_AUTH_PASSWORD_INCORRECT = 2008; // 密码不正确
+  ERROR_CODE_AUTH_TOKEN_REVOKED = 2009; // 令牌已撤销
+
   // 权限相关错误码 (3000-3999)
-  ERROR_CODE_PERMISSION_NOT_FOUND = 3000 [
-    (gnostic.openapi.v3.property) = {description: "权限不存在"}
-  ];
-  ERROR_CODE_ROLE_NOT_FOUND = 3001 [
-    (gnostic.openapi.v3.property) = {description: "角色不存在"}
-  ];
-  ERROR_CODE_INSUFFICIENT_PERMISSIONS = 3002 [
-    (gnostic.openapi.v3.property) = {description: "权限不足"}
-  ];
-  ERROR_CODE_PERMISSION_INHERITANCE_CYCLE = 3003 [
-    (gnostic.openapi.v3.property) = {description: "权限继承存在循环依赖"}
-  ];
-  ERROR_CODE_PERMISSION_INHERITANCE_DEPTH_EXCEEDED = 3004 [
-    (gnostic.openapi.v3.property) = {description: "权限继承深度超限"}
-  ];
-  ERROR_CODE_PERMISSION_CACHE_ERROR = 3005 [
-    (gnostic.openapi.v3.property) = {description: "权限缓存错误"}
-  ];
-  
+  ERROR_CODE_PERMISSION_INSUFFICIENT = 3000; // 权限不足
+  ERROR_CODE_PERMISSION_ROLE_NOT_FOUND = 3001; // 角色不存在
+  ERROR_CODE_PERMISSION_INVALID_SCOPE = 3002; // 权限范围无效
+  ERROR_CODE_PERMISSION_NOT_FOUND = 3003; // 权限不存在
+  ERROR_CODE_ROLE_NOT_FOUND = 3004; // 角色不存在
+
   // 组织相关错误码 (4000-4999)
-  ERROR_CODE_ORGANIZATION_NOT_FOUND = 4000 [
-    (gnostic.openapi.v3.property) = {description: "组织不存在"}
-  ];
-  ERROR_CODE_DEPARTMENT_NOT_FOUND = 4001 [
-    (gnostic.openapi.v3.property) = {description: "部门不存在"}
-  ];
-  ERROR_CODE_USER_GROUP_NOT_FOUND = 4002 [
-    (gnostic.openapi.v3.property) = {description: "用户组不存在"}
-  ];
-  ERROR_CODE_POSITION_NOT_FOUND = 4003 [
-    (gnostic.openapi.v3.property) = {description: "岗位不存在"}
-  ];
-  
+  ERROR_CODE_ORG_NOT_FOUND = 4000; // 组织不存在
+  ERROR_CODE_ORG_INVALID_HIERARCHY = 4001; // 组织层级结构无效
+  ERROR_CODE_DEPT_NOT_FOUND = 4002; // 部门不存在
+  ERROR_CODE_DEPT_INVALID_HIERARCHY = 4003; // 部门层级结构无效
+
   // 租户相关错误码 (5000-5999)
-  ERROR_CODE_TENANT_NOT_FOUND = 5000 [
-    (gnostic.openapi.v3.property) = {description: "租户不存在"}
-  ];
-  ERROR_CODE_TENANT_DISABLED = 5001 [
-    (gnostic.openapi.v3.property) = {description: "租户已禁用"}
-  ];
-  ERROR_CODE_TENANT_QUOTA_EXCEEDED = 5002 [
-    (gnostic.openapi.v3.property) = {description: "租户配额已用尽"}
-  ];
-  
+  ERROR_CODE_TENANT_NOT_FOUND = 5000; // 租户不存在
+  ERROR_CODE_TENANT_QUOTA_EXCEEDED = 5001; // 租户配额超限
+  ERROR_CODE_TENANT_SUSPENDED = 5002; // 租户已暂停
+  ERROR_CODE_TENANT_EXPIRED = 5003; // 租户已过期
+
   // 会话相关错误码 (6000-6999)
-  ERROR_CODE_SESSION_NOT_FOUND = 6000 [
-    (gnostic.openapi.v3.property) = {description: "会话不存在"}
-  ];
-  ERROR_CODE_SESSION_TERMINATED = 6001 [
-    (gnostic.openapi.v3.property) = {description: "会话已终止"}
-  ];
-  ERROR_CODE_CONCURRENT_SESSION_LIMIT_EXCEEDED = 6002 [
-    (gnostic.openapi.v3.property) = {description: "并发会话数量超限"}
-  ];
-  
+  ERROR_CODE_SESSION_EXPIRED = 6000; // 会话已过期
+  ERROR_CODE_SESSION_INVALID = 6001; // 会话无效
+  ERROR_CODE_SESSION_CONCURRENT_LIMIT = 6002; // 并发会话数超限
+  ERROR_CODE_SESSION_NOT_FOUND = 6003; // 会话不存在
+
   // 身份提供商相关错误码 (7000-7999)
-  ERROR_CODE_IDENTITY_PROVIDER_NOT_FOUND = 7000 [
-    (gnostic.openapi.v3.property) = {description: "身份提供商不存在"}
-  ];
-  ERROR_CODE_IDENTITY_PROVIDER_CONNECTION_ERROR = 7001 [
-    (gnostic.openapi.v3.property) = {description: "身份提供商连接错误"}
-  ];
-  ERROR_CODE_IDENTITY_PROVIDER_CONFIGURATION_ERROR = 7002 [
-    (gnostic.openapi.v3.property) = {description: "身份提供商配置错误"}
-  ];
-  
+  ERROR_CODE_IDP_NOT_FOUND = 7000; // 身份提供商不存在
+  ERROR_CODE_IDP_CONFIG_INVALID = 7001; // 身份提供商配置无效
+  ERROR_CODE_IDP_CONNECTION_FAILED = 7002; // 身份提供商连接失败
+  ERROR_CODE_IDP_SYNC_FAILED = 7003; // 身份提供商同步失败
+
   // 限流与熔断相关错误码 (8000-8999)
-  ERROR_CODE_RATE_LIMIT_EXCEEDED = 8000 [
-    (gnostic.openapi.v3.property) = {description: "请求频率超限"}
-  ];
-  ERROR_CODE_CIRCUIT_BREAKER_OPEN = 8001 [
-    (gnostic.openapi.v3.property) = {description: "熔断器已打开"}
-  ];
-}
+  ERROR_CODE_RATE_LIMIT_EXCEEDED = 8000; // 请求频率超限
+  ERROR_CODE_CIRCUIT_BREAKER_OPEN = 8001; // 熔断器已开启
+  ERROR_CODE_QUOTA_EXCEEDED = 8002; // 配额超限
+  ERROR_CODE_THROTTLING = 8003; // 请求被限流
 
-// 统一错误响应结构
-message ErrorResponse {
-  ErrorCode code = 1 [
-    json_name = "code",
-    (gnostic.openapi.v3.property) = {description: "错误码"}
-  ];
-  
-  string message = 2 [
-    json_name = "message",
-    (gnostic.openapi.v3.property) = {description: "错误消息"}
-  ];
-  
-  string request_id = 3 [
-    json_name = "requestId",
-    (gnostic.openapi.v3.property) = {description: "请求ID，用于跟踪和排查问题"}
-  ];
-  
-  map<string, string> details = 4 [
-    json_name = "details",
-    (gnostic.openapi.v3.property) = {description: "错误详情，包含额外的上下文信息"}
-  ];
-}
-
-// 自定义选项定义
-extend google.protobuf.MethodOptions {
-  RateLimitOptions rate_limit = 50001;
-  CircuitBreakerOptions circuit_breaker = 50002;
-  CacheOptions cache = 50003;
-}
-
-// 限流选项
-message RateLimitOptions {
-  uint32 requests_per_minute = 1 [
-    (gnostic.openapi.v3.property) = {description: "每分钟请求数限制"}
-  ];
-  
-  uint32 burst = 2 [
-    (gnostic.openapi.v3.property) = {description: "突发请求数限制"}
-  ];
-}
-
-// 熔断选项
-message CircuitBreakerOptions {
-  uint32 error_threshold_percentage = 1 [
-    (gnostic.openapi.v3.property) = {description: "错误阈值百分比"}
-  ];
-  
-  uint32 min_request_amount = 2 [
-    (gnostic.openapi.v3.property) = {description: "最小请求数量"}
-  ];
-  
-  uint32 sleep_window_ms = 3 [
-    (gnostic.openapi.v3.property) = {description: "熔断后休眠窗口(毫秒)"}
-  ];
-}
-
-// 缓存选项
-message CacheOptions {
-  bool cacheable = 1 [
-    (gnostic.openapi.v3.property) = {description: "是否可缓存"}
-  ];
-  
-  uint32 ttl_seconds = 2 [
-    (gnostic.openapi.v3.property) = {description: "缓存生存时间(秒)"}
-  ];
-  
-  repeated string cache_keys = 3 [
-    (gnostic.openapi.v3.property) = {description: "用于构建缓存键的字段"}
-  ];
+  // 审计相关错误码 (9000-9999)
+  ERROR_CODE_AUDIT_LOG_NOT_FOUND = 9000; // 审计日志不存在
+  ERROR_CODE_AUDIT_LOG_WRITE_FAILED = 9001; // 审计日志写入失败
+  ERROR_CODE_AUDIT_LOG_READ_FAILED = 9002; // 审计日志读取失败
+  ERROR_CODE_AUDIT_LOG_INVALID_FILTER = 9003; // 审计日志筛选条件无效
 }

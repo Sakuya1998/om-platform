@@ -1,20 +1,24 @@
 syntax = "proto3";
 
-package user.service.v1;
+// 用户服务审计模块 - 提供审计日志记录和查询功能
+package api.user.service.v1;
+
+// 包配置选项
+option go_package = "github.com/Sakuya1998/om-platform/api/user/service/v1;userv1";
+option java_multiple_files = true;
+option java_package = "com.omplatform.api.user.service.v1";
+option java_outer_classname = "AuditProto";
+option csharp_namespace = "OmPlatform.Api.User.Service.V1";
+option php_namespace = "OmPlatform\\Api\\User\\Service\\V1";
+option ruby_package = "OmPlatform::Api::User::Service::V1";
 
 import "google/api/annotations.proto";
-import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
-import "google/protobuf/field_mask.proto";
 import "google/protobuf/struct.proto";
-import "google/protobuf/descriptor.proto";
 import "validate/validate.proto";
+import "gnostic/openapi/v3/annotations.proto";
 import "api/user/service/v1/common.proto";
 import "api/user/service/v1/error_codes.proto";
-
-option go_package = "om-platform/api/user/service/v1;userv1";
-option java_multiple_files = true;
-option java_package = "api.user.service.v1";
 
 // 审计日志服务 (AuditService)
 // 提供操作审计、安全审计和合规审计等功能
@@ -206,145 +210,169 @@ enum AuditResult {
   AUDIT_RESULT_CANCELLED = 4;   // 取消
 }
 
-// 审计日志
+// 审计日志条目
+// 记录系统中发生的各种操作和事件
+// 包含操作者、操作类型、操作对象、时间戳等信息
+// 支持数字签名验证，确保日志完整性
 message AuditLog {
-  // 日志ID
-  string log_id = 1 [(validate.rules).string.min_len = 1];
+  option (gnostic.openapi.v3.schema) = {
+    title: "审计日志"
+    description: "系统操作审计日志记录"
+  };
   
-  // 租户ID
-  string tenant_id = 2;
-  
-  // 组织ID
-  string organization_id = 3;
-  
-  // 用户ID
-  string user_id = 4;
-  
-  // 用户名
-  string username = 5;
-  
-  // 会话ID
-  string session_id = 6;
-  
-  // 事件类型
-  AuditEventType event_type = 7 [(validate.rules).enum.defined_only = true];
-  
-  // 审计级别
-  AuditLevel level = 8 [(validate.rules).enum.defined_only = true];
-  
-  // 操作结果
-  AuditResult result = 9 [(validate.rules).enum.defined_only = true];
-  
-  // 事件描述
-  string description = 10 [(validate.rules).string.max_len = 1000];
-  
-  // 资源类型
-  string resource_type = 11;
-  
-  // 资源ID
-  string resource_id = 12;
-  
-  // 资源名称
-  string resource_name = 13;
-  
-  // 操作前数据
-  google.protobuf.Struct before_data = 14;
-  
-  // 操作后数据
-  google.protobuf.Struct after_data = 15;
-  
-  // 客户端IP
-  string client_ip = 16;
-  
-  // 用户代理
-  string user_agent = 17;
-  
-  // 请求ID
-  string request_id = 18;
-  
-  // 错误码
-  string error_code = 19;
-  
-  // 错误消息
-  string error_message = 20;
-  
-  // 扩展字段
-  google.protobuf.Struct metadata = 21;
-  
-  // 数字签名
-  string signature = 22;
-  
-  // 创建时间
-  google.protobuf.Timestamp created_at = 23;
-  
-  // 处理时间（毫秒）
-  int64 processing_time_ms = 24;
+  optional string log_id = 1 [
+    json_name = "logId",
+    (gnostic.openapi.v3.property) = {description: "日志唯一标识符"}
+  ];
+  optional uint32 tenant_id = 2 [
+    json_name = "tenantId",
+    (gnostic.openapi.v3.property) = {description: "租户ID"}
+  ];
+  optional uint32 user_id = 3 [
+    json_name = "userId",
+    (gnostic.openapi.v3.property) = {description: "操作用户ID"}
+  ];
+  optional string username = 4 [
+    json_name = "username",
+    (gnostic.openapi.v3.property) = {description: "操作用户名"}
+  ];
+  optional AuditEventType action = 5 [
+    json_name = "action",
+    (gnostic.openapi.v3.property) = {description: "操作类型"}
+  ];
+  optional string resource_type = 6 [
+    json_name = "resourceType",
+    (gnostic.openapi.v3.property) = {description: "资源类型"}
+  ];
+  optional string resource_id = 7 [
+    json_name = "resourceId",
+    (gnostic.openapi.v3.property) = {description: "资源ID"}
+  ];
+  optional string resource_name = 8 [
+    json_name = "resourceName",
+    (gnostic.openapi.v3.property) = {description: "资源名称"}
+  ];
+  optional string description = 9 [
+    json_name = "description",
+    (gnostic.openapi.v3.property) = {description: "操作描述"}
+  ];
+  optional string ip_address = 10 [
+    json_name = "ipAddress",
+    (gnostic.openapi.v3.property) = {description: "客户端IP地址"}
+  ];
+  optional string user_agent = 11 [
+    json_name = "userAgent",
+    (gnostic.openapi.v3.property) = {description: "用户代理字符串"}
+  ];
+  optional string session_id = 12 [
+    json_name = "sessionId",
+    (gnostic.openapi.v3.property) = {description: "会话ID"}
+  ];
+  optional google.protobuf.Timestamp timestamp = 13 [
+    json_name = "timestamp",
+    (gnostic.openapi.v3.property) = {description: "操作时间戳"}
+  ];
+  optional AuditLevel level = 14 [
+    json_name = "level",
+    (gnostic.openapi.v3.property) = {description: "审计级别"}
+  ];
+  optional AuditResult status = 15 [
+    json_name = "status",
+    (gnostic.openapi.v3.property) = {description: "操作状态"}
+  ];
+  optional string error_message = 16 [
+    json_name = "errorMessage",
+    (gnostic.openapi.v3.property) = {description: "错误信息（如果操作失败）"}
+  ];
+  map<string, string> metadata = 17 [
+    json_name = "metadata",
+    (gnostic.openapi.v3.property) = {description: "扩展元数据"}
+  ];
+  optional string signature = 18 [
+    json_name = "signature",
+    (gnostic.openapi.v3.property) = {description: "数字签名（用于验证日志完整性）"}
+  ];
+  optional google.protobuf.Timestamp created_at = 19 [
+    json_name = "createdAt",
+    (gnostic.openapi.v3.property) = {description: "日志创建时间"}
+  ];
 }
 
 // 创建审计日志请求
 message CreateAuditLogRequest {
-  // 租户ID
-  string tenant_id = 1;
+  option (gnostic.openapi.v3.schema) = {
+    title: "创建审计日志请求"
+    description: "创建新的审计日志记录"
+  };
   
-  // 组织ID
-  string organization_id = 2;
-  
-  // 用户ID
-  string user_id = 3;
-  
-  // 用户名
-  string username = 4;
-  
-  // 会话ID
-  string session_id = 5;
-  
-  // 事件类型
-  AuditEventType event_type = 6 [(validate.rules).enum.defined_only = true];
-  
-  // 审计级别
-  AuditLevel level = 7 [(validate.rules).enum.defined_only = true];
-  
-  // 操作结果
-  AuditResult result = 8 [(validate.rules).enum.defined_only = true];
-  
-  // 事件描述
-  string description = 9 [(validate.rules).string = {min_len: 1, max_len: 1000}];
-  
-  // 资源类型
-  string resource_type = 10;
-  
-  // 资源ID
-  string resource_id = 11;
-  
-  // 资源名称
-  string resource_name = 12;
-  
-  // 操作前数据
-  google.protobuf.Struct before_data = 13;
-  
-  // 操作后数据
-  google.protobuf.Struct after_data = 14;
-  
-  // 客户端IP
-  string client_ip = 15;
-  
-  // 用户代理
-  string user_agent = 16;
-  
-  // 请求ID
-  string request_id = 17;
-  
-  // 错误码
-  string error_code = 18;
-  
-  // 错误消息
-  string error_message = 19;
-  
-  // 扩展字段
-  google.protobuf.Struct metadata = 20;
-  
-  // 处理时间（毫秒）
-  int64 processing_time_ms = 21;
+  optional uint32 tenant_id = 1 [
+    json_name = "tenantId",
+    (gnostic.openapi.v3.property) = {description: "租户ID"}
+  ];
+  optional uint32 user_id = 2 [
+    json_name = "userId",
+    (gnostic.openapi.v3.property) = {description: "操作用户ID"}
+  ];
+  optional string username = 3 [
+    json_name = "username",
+    (gnostic.openapi.v3.property) = {description: "操作用户名"}
+  ];
+  optional string session_id = 4 [
+    json_name = "sessionId",
+    (gnostic.openapi.v3.property) = {description: "会话ID"}
+  ];
+  optional AuditEventType event_type = 5 [
+    json_name = "eventType",
+    (gnostic.openapi.v3.property) = {description: "事件类型"}
+  ];
+  optional AuditLevel level = 6 [
+    json_name = "level",
+    (gnostic.openapi.v3.property) = {description: "审计级别"}
+  ];
+  optional AuditResult result = 7 [
+    json_name = "result",
+    (gnostic.openapi.v3.property) = {description: "操作结果"}
+  ];
+  optional string description = 8 [
+    json_name = "description",
+    (gnostic.openapi.v3.property) = {description: "事件描述"}
+  ];
+  optional string resource_type = 9 [
+    json_name = "resourceType",
+    (gnostic.openapi.v3.property) = {description: "资源类型"}
+  ];
+  optional string resource_id = 10 [
+    json_name = "resourceId",
+    (gnostic.openapi.v3.property) = {description: "资源ID"}
+  ];
+  optional string resource_name = 11 [
+    json_name = "resourceName",
+    (gnostic.openapi.v3.property) = {description: "资源名称"}
+  ];
+  optional string client_ip = 12 [
+    json_name = "clientIp",
+    (gnostic.openapi.v3.property) = {description: "客户端IP地址"}
+  ];
+  optional string user_agent = 13 [
+    json_name = "userAgent",
+    (gnostic.openapi.v3.property) = {description: "用户代理字符串"}
+  ];
+  optional string request_id = 14 [
+    json_name = "requestId",
+    (gnostic.openapi.v3.property) = {description: "请求ID"}
+  ];
+  optional string error_code = 15 [
+    json_name = "errorCode",
+    (gnostic.openapi.v3.property) = {description: "错误码"}
+  ];
+  optional string error_message = 16 [
+    json_name = "errorMessage",
+    (gnostic.openapi.v3.property) = {description: "错误消息"}
+  ];
+  map<string, string> metadata = 17 [
+    json_name = "metadata",
+    (gnostic.openapi.v3.property) = {description: "扩展元数据"}
+  ];
 }
 
 // 创建审计日志响应
@@ -383,13 +411,13 @@ message BatchCreateAuditLogsResponse {
 // 查询审计日志请求
 message ListAuditLogsRequest {
   // 租户ID
-  string tenant_id = 1;
+  uint32 tenant_id = 1;
   
   // 组织ID
-  string organization_id = 2;
+  uint32 organization_id = 2;
   
   // 用户ID
-  string user_id = 3;
+  uint32 user_id = 3;
   
   // 用户名
   string username = 4;
@@ -461,9 +489,9 @@ message GetAuditLogRequest {
 // 导出审计日志请求
 message ExportAuditLogsRequest {
   // 查询条件（复用ListAuditLogsRequest的字段）
-  string tenant_id = 1;
-  string organization_id = 2;
-  string user_id = 3;
+  uint32 tenant_id = 1;
+  uint32 organization_id = 2;
+  uint32 user_id = 3;
   repeated AuditEventType event_types = 4;
   repeated AuditLevel levels = 5;
   google.protobuf.Timestamp start_time = 6;
@@ -497,10 +525,10 @@ message ExportAuditLogsResponse {
 // 获取审计统计请求
 message GetAuditStatisticsRequest {
   // 租户ID
-  string tenant_id = 1;
+  uint32 tenant_id = 1;
   
   // 组织ID
-  string organization_id = 2;
+  uint32 organization_id = 2;
   
   // 开始时间
   google.protobuf.Timestamp start_time = 3;
@@ -587,7 +615,7 @@ message AnomalyData {
   google.protobuf.Timestamp occurred_at = 4;
   
   // 相关用户
-  string user_id = 5;
+  uint32 user_id = 5;
   
   // 相关资源
   string resource_id = 6;
@@ -675,37 +703,4 @@ message VerifyAuditLogsResponse {
   
   // 验证时间
   google.protobuf.Timestamp verified_at = 5;
-}
-
-// 自定义选项扩展
-extend google.protobuf.MethodOptions {
-  // 限流配置
-  RateLimitOptions rate_limit = 50001;
-  
-  // 缓存配置
-  CacheOptions cache = 50002;
-}
-
-// 限流选项
-message RateLimitOptions {
-  // 每秒请求数
-  int32 requests_per_second = 1;
-  
-  // 突发请求数
-  int32 burst = 2;
-}
-
-// 缓存选项
-message CacheOptions {
-  // 是否可缓存
-  bool cacheable = 1;
-  
-  // TTL（秒）
-  int32 ttl_seconds = 2;
-  
-  // 缓存键模式
-  string key_pattern = 3;
-  
-  // 缓存键列表
-  repeated string cache_keys = 4;
 }

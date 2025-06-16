@@ -1,6 +1,8 @@
 syntax = "proto3";
 
-package user.service.v1;
+// 认证服务API定义
+// 提供用户登录、登出、令牌验证等认证相关功能
+package api.user.service.v1;
 
 import "google/api/annotations.proto";
 import "google/protobuf/empty.proto";
@@ -10,10 +12,20 @@ import "google/protobuf/descriptor.proto";
 import "validate/validate.proto";
 import "api/user/service/v1/common.proto";
 import "api/user/service/v1/error_codes.proto";
+import "api/user/service/v1/audit.proto";
 
+// Go语言包路径配置
 option go_package = "om-platform/api/user/service/v1;userv1";
+// Java多文件生成配置
 option java_multiple_files = true;
+// Java包路径配置
 option java_package = "api.user.service.v1";
+// C#命名空间配置
+option csharp_namespace = "OmPlatform.Api.User.Service.V1";
+// PHP命名空间配置
+option php_namespace = "OmPlatform\\Api\\User\\Service\\V1";
+// Ruby包配置
+option ruby_package = "OmPlatform::Api::User::Service::V1";
 
 // 认证服务 (AuthenticationService)
 // 提供用户认证、令牌管理和会话管理功能
@@ -107,9 +119,8 @@ service AuthenticationService {
       body: "*"
     };
     option (rate_limit) = {
-      requests_per_minute: 5
+      requests_per_second: 1
       burst: 3
-      per_ip: true
     };
   }
 
@@ -255,9 +266,8 @@ service AuthenticationService {
       body: "*"
     };
     option (rate_limit) = {
-      requests_per_minute: 5
+      requests_per_second: 1
       burst: 3
-      per_ip: true
     };
   }
 
@@ -270,9 +280,8 @@ service AuthenticationService {
       body: "*"
     };
     option (rate_limit) = {
-      requests_per_minute: 5
+      requests_per_second: 1
       burst: 3
-      per_ip: true
     };
   }
 }
@@ -367,6 +376,7 @@ message DeviceInfo {
 }
 
 // 登录请求
+// 用户登录认证的请求参数
 message LoginRequest {
   // 认证类型
   AuthType auth_type = 1 [
@@ -374,10 +384,10 @@ message LoginRequest {
     (gnostic.openapi.v3.property) = {description: "认证类型"}
   ];
   
-  // 用户名
+  // 用户名或邮箱
   optional string username = 2 [
     json_name = "username",
-    (gnostic.openapi.v3.property) = {description: "用户名"}
+    (gnostic.openapi.v3.property) = {description: "用户名或邮箱"}
   ];
   
   // 密码
@@ -422,22 +432,22 @@ message LoginRequest {
     (gnostic.openapi.v3.property) = {description: "设备信息"}
   ];
   
-  // 租户ID
+  // 租户ID（可选，用于多租户场景）
   optional uint32 tenant_id = 10 [
     json_name = "tenantId",
     (gnostic.openapi.v3.property) = {description: "租户ID"}
   ];
   
-  // 是否记住登录状态
+  // 记住登录状态
   optional bool remember_me = 11 [
     json_name = "rememberMe",
-    (gnostic.openapi.v3.property) = {description: "是否记住登录状态"}
+    (gnostic.openapi.v3.property) = {description: "记住登录状态"}
   ];
   
-  // 双因素认证码
+  // 多因素认证令牌（可选）
   optional string two_factor_code = 12 [
     json_name = "twoFactorCode",
-    (gnostic.openapi.v3.property) = {description: "双因素认证码"}
+    (gnostic.openapi.v3.property) = {description: "多因素认证令牌"}
   ];
 }
 
@@ -535,6 +545,7 @@ message UserInfo {
 }
 
 // 登录响应
+// 用户登录成功后返回的认证信息
 message LoginResponse {
   // 访问令牌
   string access_token = 1 [
@@ -548,22 +559,22 @@ message LoginResponse {
     (gnostic.openapi.v3.property) = {description: "刷新令牌"}
   ];
   
-  // 令牌类型
+  // 令牌类型（通常为Bearer）
   string token_type = 3 [
     json_name = "tokenType",
     (gnostic.openapi.v3.property) = {description: "令牌类型"}
   ];
   
-  // 过期时间（秒）
+  // 访问令牌过期时间（秒）
   uint32 expires_in = 4 [
     json_name = "expiresIn",
-    (gnostic.openapi.v3.property) = {description: "过期时间（秒）"}
+    (gnostic.openapi.v3.property) = {description: "访问令牌过期时间（秒）"}
   ];
   
-  // 用户信息
+  // 用户基本信息
   UserInfo user_info = 5 [
     json_name = "userInfo",
-    (gnostic.openapi.v3.property) = {description: "用户信息"}
+    (gnostic.openapi.v3.property) = {description: "用户基本信息"}
   ];
   
   // 会话ID
@@ -572,10 +583,10 @@ message LoginResponse {
     (gnostic.openapi.v3.property) = {description: "会话ID"}
   ];
   
-  // 是否需要双因素认证
+  // 是否需要多因素认证
   bool require_two_factor = 7 [
     json_name = "requireTwoFactor",
-    (gnostic.openapi.v3.property) = {description: "是否需要双因素认证"}
+    (gnostic.openapi.v3.property) = {description: "是否需要多因素认证"}
   ];
 }
 

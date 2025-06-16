@@ -1,6 +1,8 @@
 syntax = "proto3";
 
-package user.service.v1;
+// 用户服务API定义
+// 提供用户管理相关的核心功能，包括用户的增删改查、批量操作等
+package api.user.service.v1;
 
 import "google/api/annotations.proto";
 import "google/protobuf/empty.proto";
@@ -8,13 +10,23 @@ import "google/protobuf/timestamp.proto";
 import "google/protobuf/field_mask.proto";
 import "google/protobuf/struct.proto";
 import "google/protobuf/descriptor.proto";
+import "gnostic/openapi/v3/annotations.proto";
 import "validate/validate.proto";
 import "api/user/service/v1/common.proto";
 import "api/user/service/v1/error_codes.proto";
 
-option go_package = "om-platform/api/user/service/v1;userv1";
+// Go语言包路径配置
+option go_package = "github.com/Sakuya1998/om-platform/api/user/service/v1;userv1";
+// Java多文件生成配置
 option java_multiple_files = true;
-option java_package = "api.user.service.v1";
+// Java包路径配置
+option java_package = "com.omplatform.api.user.service.v1";
+// C#命名空间配置
+option csharp_namespace = "OmPlatform.Api.User.Service.V1";
+// PHP命名空间配置
+option php_namespace = "OmPlatform\\Api\\User\\Service\\V1";
+// Ruby包配置
+option ruby_package = "OmPlatform::Api::User::Service::V1";
 
 // 用户服务 (UserService)
 // 专注于用户基本信息管理功能，包括用户CRUD操作、用户角色分配和权限管理
@@ -372,194 +384,201 @@ service UserService {
   }
 }
 
-// 用户
+// 用户信息
+// 用户实体的完整定义，包含用户的基本信息、状态、权限等
 message User {
-  // 用户ID
-  optional uint32 id = 1 [
+  // 用户唯一标识符
+  string id = 1 [
     json_name = "id",
-    (gnostic.openapi.v3.property) = {description: "用户ID"}
-  ];
-
-  // 角色ID列表
-  repeated uint32 role_ids = 2 [
-    json_name = "roleIds", 
-    (gnostic.openapi.v3.property) = {description: "角色ID列表"}
+    (gnostic.openapi.v3.property) = {description: "用户唯一标识符"}
   ];
   
-  // 工号
-  optional string work_id = 3 [
-    json_name = "workId", 
-    (gnostic.openapi.v3.property) = {description: "工号"}
-  ];
-  
-  // 部门ID
-  optional uint32 department_id = 4 [
-    json_name = "departmentId", 
-    (gnostic.openapi.v3.property) = {description: "部门ID"}
-  ];
-  
-  // 岗位ID
-  optional uint32 position_id = 5 [
-    json_name = "positionId", 
-    (gnostic.openapi.v3.property) = {description: "岗位ID"}
-  ];
-  
-  // 权限缓存生存时间(秒)
-  optional uint32 permission_cache_ttl = 6 [
-    json_name = "permissionCacheTtl", 
-    (gnostic.openapi.v3.property) = {description: "权限缓存生存时间(秒)"}
-  ];
-  
-  // 租户ID
-  optional uint32 tenant_id = 7 [
-    json_name = "tenantId", 
-    (gnostic.openapi.v3.property) = {description: "租户ID"}
-  ];
-
-  // 登录名
-  optional string username = 8 [
+  // 用户名（登录名）
+  string username = 2 [
     json_name = "username",
-    (gnostic.openapi.v3.property) = {description: "登录名"}
+    (gnostic.openapi.v3.property) = {description: "用户名（登录名）"}
   ];
-
-  // 昵称
-  optional string nick_name = 9 [
-    json_name = "nickName",
-    (gnostic.openapi.v3.property) = {description: "昵称"}
+  
+  // 显示名称（昵称）
+  optional string display_name = 3 [
+    json_name = "displayName",
+    (gnostic.openapi.v3.property) = {description: "显示名称（昵称）"}
   ];
-
-  // 真实姓名
-  optional string real_name = 10 [
-    json_name = "realName",
-    (gnostic.openapi.v3.property) = {description: "真实姓名"}
-  ];
-
-  // 头像
-  optional string avatar = 11 [
-    json_name = "avatar",
-    (gnostic.openapi.v3.property) = {description: "头像"}
-  ];
-
-  // 邮箱
-  optional string email = 12 [
+  
+  // 邮箱地址
+  optional string email = 4 [
     json_name = "email",
-    (gnostic.openapi.v3.property) = {description: "邮箱"}
+    (gnostic.openapi.v3.property) = {description: "邮箱地址"}
   ];
-
-  // 手机号
-  optional string mobile = 13 [
-    json_name = "mobile",
-    (gnostic.openapi.v3.property) = {description: "手机号"}
+  
+  // 手机号码
+  optional string phone = 5 [
+    json_name = "phone",
+    (gnostic.openapi.v3.property) = {description: "手机号码"}
   ];
-
-  // 座机号
-  optional string telephone = 14 [
-    json_name = "telephone",
-    (gnostic.openapi.v3.property) = {description: "座机号"}
+  
+  // 头像URL地址
+  optional string avatar_url = 6 [
+    json_name = "avatarUrl",
+    (gnostic.openapi.v3.property) = {description: "头像URL地址"}
   ];
-
-  // 性别
-  optional UserGender gender = 15 [
+  
+  // 用户账户状态
+  UserAccountStatus status = 7 [
+    json_name = "status",
+    (gnostic.openapi.v3.property) = {description: "用户账户状态"}
+  ];
+  
+  // 用户权限级别
+  UserAuthority authority = 8 [
+    json_name = "authority",
+    (gnostic.openapi.v3.property) = {description: "用户权限级别"}
+  ];
+  
+  // 用户性别
+  optional UserGender gender = 9 [
     json_name = "gender",
-    (gnostic.openapi.v3.property) = {description: "性别"}
+    (gnostic.openapi.v3.property) = {description: "用户性别"}
   ];
-
-  // 住址
-  optional string address = 16 [
-    json_name = "address",
-    (gnostic.openapi.v3.property) = {description: "住址"}
+  
+  // 出生日期
+  optional google.protobuf.Timestamp birthday = 10 [
+    json_name = "birthday",
+    (gnostic.openapi.v3.property) = {description: "出生日期"}
   ];
-
-  // 国家地区
-  optional string region = 17 [
-    json_name = "region",
-    (gnostic.openapi.v3.property) = {description: "国家地区"}
-  ];
-
-  // 个人描述
-  optional string description = 18 [
-    json_name = "description",
-    (gnostic.openapi.v3.property) = {description: "个人描述"}
-  ];
-
-  // 备注名
-  optional string remark = 19 [
-    json_name = "remark",
-    (gnostic.openapi.v3.property) = {description: "备注名"}
-  ];
-
+  
   // 最后登录时间
-  optional int64 last_login_time = 20 [
-    json_name = "lastLoginTime",
+  optional google.protobuf.Timestamp last_login_at = 11 [
+    json_name = "lastLoginAt",
     (gnostic.openapi.v3.property) = {description: "最后登录时间"}
   ];
-
-  // 最后登录IP
-  optional string last_login_ip = 21 [
-    json_name = "lastLoginIp",
-    (gnostic.openapi.v3.property) = {description: "最后登录IP"}
-  ];
-
-  // 账户状态
-  optional UserAccountStatus status = 22 [
-    json_name = "status",
-    (gnostic.openapi.v3.property) = {description: "账户状态"}
-  ];
   
-  // 权限级别
-  optional UserAuthority authority = 23 [
-    json_name = "authority",
-    (gnostic.openapi.v3.property) = {description: "权限级别"}
-  ];
-  
-  // 审计信息
-  optional AuditInfo audit_info = 24 [
+  // 审计信息（创建时间、更新时间等）
+  optional AuditInfo audit_info = 12 [
     json_name = "auditInfo",
     (gnostic.openapi.v3.property) = {description: "审计信息"}
   ];
   
-  // 扩展字段，用于未来功能扩展
-  optional google.protobuf.Struct extensions = 1000 [
-    json_name = "extensions",
-    (gnostic.openapi.v3.property) = {description: "扩展字段，用于未来功能扩展"}
+  // 租户信息
+  optional TenantInfo tenant_info = 13 [
+    json_name = "tenantInfo",
+    (gnostic.openapi.v3.property) = {description: "租户信息"}
+  ];
+  
+  // 联系信息
+  optional ContactInfo contact_info = 14 [
+    json_name = "contactInfo",
+    (gnostic.openapi.v3.property) = {description: "联系信息"}
+  ];
+  
+  // 用户描述或备注
+  optional string description = 15 [
+    json_name = "description",
+    (gnostic.openapi.v3.property) = {description: "用户描述或备注"}
+  ];
+  
+  // 用户标签（用于分类和搜索）
+  repeated string tags = 16 [
+    json_name = "tags",
+    (gnostic.openapi.v3.property) = {description: "用户标签"}
+  ];
+  
+  // 用户扩展属性（JSON格式）
+  optional string extra_attributes = 17 [
+    json_name = "extraAttributes",
+    (gnostic.openapi.v3.property) = {description: "用户扩展属性（JSON格式）"}
   ];
 }
 
-// 查询用户列表请求
+// 用户列表请求
+// 获取用户列表的请求参数，支持分页、排序和过滤
 message ListUsersRequest {
-  // 分页参数
-  uint32 page = 1 [
-    json_name = "page",
-    (gnostic.openapi.v3.property) = {description: "页码，从1开始"}
+  // 分页请求参数
+  optional PagingRequest paging = 1 [
+    json_name = "paging",
+    (gnostic.openapi.v3.property) = {description: "分页请求参数"}
   ];
   
-  uint32 page_size = 2 [
-    json_name = "pageSize",
-    (gnostic.openapi.v3.property) = {description: "每页记录数"}
-  ];
-  
-  // 排序选项
-  repeated SortOption sort = 3 [
-    json_name = "sort",
-    (gnostic.openapi.v3.property) = {description: "排序选项"}
-  ];
-  
-  // 过滤条件
-  google.protobuf.Struct filter = 4 [
-    json_name = "filter",
-    (gnostic.openapi.v3.property) = {description: "过滤条件，JSON格式"}
-  ];
-  
-  // 字段掩码，指定需要返回的字段
-  google.protobuf.FieldMask field_mask = 5 [
-    json_name = "fieldMask",
-    (gnostic.openapi.v3.property) = {description: "字段掩码，指定需要返回的字段"}
-  ];
-  
-  // 租户ID
-  optional uint32 tenant_id = 6 [
+  // 租户ID（可选，用于多租户场景）
+  optional uint32 tenant_id = 2 [
     json_name = "tenantId",
     (gnostic.openapi.v3.property) = {description: "租户ID"}
+  ];
+  
+  // 排序选项列表
+  repeated SortOption sort_options = 3 [
+    json_name = "sortOptions",
+    (gnostic.openapi.v3.property) = {description: "排序选项列表"}
+  ];
+  
+  // 用户过滤条件
+  optional UserFilter filter = 4 [
+    json_name = "filter",
+    (gnostic.openapi.v3.property) = {description: "用户过滤条件"}
+  ];
+}
+
+// 用户过滤条件
+// 用于用户列表查询的过滤参数
+message UserFilter {
+  // 用户名模糊匹配
+  optional string username = 1 [
+    json_name = "username",
+    (gnostic.openapi.v3.property) = {description: "用户名模糊匹配"}
+  ];
+  
+  // 显示名称模糊匹配
+  optional string display_name = 2 [
+    json_name = "displayName",
+    (gnostic.openapi.v3.property) = {description: "显示名称模糊匹配"}
+  ];
+  
+  // 邮箱模糊匹配
+  optional string email = 3 [
+    json_name = "email",
+    (gnostic.openapi.v3.property) = {description: "邮箱模糊匹配"}
+  ];
+  
+  // 手机号模糊匹配
+  optional string phone = 4 [
+    json_name = "phone",
+    (gnostic.openapi.v3.property) = {description: "手机号模糊匹配"}
+  ];
+  
+  // 用户状态过滤
+  repeated UserAccountStatus status = 5 [
+    json_name = "status",
+    (gnostic.openapi.v3.property) = {description: "用户状态过滤"}
+  ];
+  
+  // 权限级别过滤
+  repeated UserAuthority authority = 6 [
+    json_name = "authority",
+    (gnostic.openapi.v3.property) = {description: "权限级别过滤"}
+  ];
+  
+  // 性别过滤
+  repeated UserGender gender = 7 [
+    json_name = "gender",
+    (gnostic.openapi.v3.property) = {description: "性别过滤"}
+  ];
+  
+  // 创建时间范围过滤（开始时间）
+  optional google.protobuf.Timestamp created_at_start = 8 [
+    json_name = "createdAtStart",
+    (gnostic.openapi.v3.property) = {description: "创建时间范围过滤（开始时间）"}
+  ];
+  
+  // 创建时间范围过滤（结束时间）
+  optional google.protobuf.Timestamp created_at_end = 9 [
+    json_name = "createdAtEnd",
+    (gnostic.openapi.v3.property) = {description: "创建时间范围过滤（结束时间）"}
+  ];
+  
+  // 标签过滤
+  repeated string tags = 10 [
+    json_name = "tags",
+    (gnostic.openapi.v3.property) = {description: "标签过滤"}
   ];
 }
 

@@ -1,6 +1,16 @@
 syntax = "proto3";
 
+// 用户服务部门模块 - 提供部门管理功能
 package user.service.v1;
+
+// 包配置选项
+option go_package = "github.com/Sakuya1998/om-platform/api/user/service/v1;userv1";
+option java_multiple_files = true;
+option java_package = "com.omplatform.api.user.service.v1";
+option java_outer_classname = "DepartmentProto";
+option csharp_namespace = "OmPlatform.Api.User.Service.V1";
+option php_namespace = "OmPlatform\\Api\\User\\Service\\V1";
+option ruby_package = "OmPlatform::Api::User::Service::V1";
 
 import "google/api/annotations.proto";
 import "google/protobuf/empty.proto";
@@ -9,12 +19,9 @@ import "google/protobuf/field_mask.proto";
 import "google/protobuf/struct.proto";
 import "google/protobuf/descriptor.proto";
 import "validate/validate.proto";
-import "api/user/service/v1/common.proto";
-import "api/user/service/v1/error_codes.proto";
-
-option go_package = "om-platform/api/user/service/v1;userv1";
-option java_multiple_files = true;
-option java_package = "api.user.service.v1";
+import "gnostic/openapi/v3/annotations.proto";
+import "common.proto";
+import "error_codes.proto";
 
 // 部门服务 (DepartmentService)
 // 提供部门结构管理、部门成员管理和部门配置管理等功能
@@ -305,7 +312,7 @@ message Department {
   ];
   
   // 部门类型
-  string type = 4 [
+  DepartmentType type = 4 [
     json_name = "type",
     (gnostic.openapi.v3.property) = {description: "部门类型"}
   ];
@@ -329,9 +336,9 @@ message Department {
   ];
   
   // 部门状态：ACTIVE, INACTIVE
-  string status = 8 [
+  CommonStatus status = 8 [
     json_name = "status",
-    (gnostic.openapi.v3.property) = {description: "部门状态：ACTIVE, INACTIVE"}
+    (gnostic.openapi.v3.property) = {description: "部门状态"}
   ];
   
   // 部门排序

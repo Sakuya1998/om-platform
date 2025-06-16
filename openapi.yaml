@@ -3,8 +3,1059 @@
 
 openapi: 3.0.3
 info:
-    title: ""
+    title: AccountService API
+    description: |-
+        账户服务 (AccountService)
+         提供账户状态管理、账户配置和账户安全设置等功能
+         错误处理：所有接口在发生错误时将返回ErrorResponse结构，包含统一的错误码、错误消息和详细信息
+         性能说明：支持高并发访问，关键接口已实现缓存优化
+         安全说明：所有敏感操作均有日志记录和风险控制
     version: 0.0.1
-paths: {}
+paths:
+    /v1/account/audit-logs:
+        get:
+            tags:
+                - AccountService
+            description: |-
+                获取账户审计日志
+                 获取指定用户的账户操作审计日志
+                 权限要求：AUDIT_READ 或 ADMIN 或 SELF
+                 可能的错误码：USER_NOT_FOUND, PERMISSION_DENIED
+            operationId: AccountService_GetAccountAuditLogs
+            parameters:
+                - name: userId
+                  in: query
+                  description: 用户ID
+                  schema:
+                    type: integer
+                    format: uint32
+                - name: startTime
+                  in: query
+                  description: 开始时间
+                  schema:
+                    type: string
+                    format: date-time
+                - name: endTime
+                  in: query
+                  description: 结束时间
+                  schema:
+                    type: string
+                    format: date-time
+                - name: operationType
+                  in: query
+                  description: 操作类型
+                  schema:
+                    type: string
+                - name: page
+                  in: query
+                  description: 分页参数
+                  schema:
+                    type: integer
+                    format: uint32
+                - name: pageSize
+                  in: query
+                  schema:
+                    type: integer
+                    format: uint32
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/GetAccountAuditLogsResponse'
+                default:
+                    description: Default error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Status'
+    /v1/account/config:
+        get:
+            tags:
+                - AccountService
+            description: |-
+                获取账户配置
+                 获取指定用户的账户配置
+                 权限要求：ACCOUNT_READ 或 ADMIN 或 SELF
+                 可能的错误码：USER_NOT_FOUND, PERMISSION_DENIED
+            operationId: AccountService_GetAccountConfig
+            parameters:
+                - name: userId
+                  in: query
+                  description: 用户ID
+                  schema:
+                    type: integer
+                    format: uint32
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/AccountConfig'
+                default:
+                    description: Default error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Status'
+        put:
+            tags:
+                - AccountService
+            description: |-
+                更新账户配置
+                 更新指定用户的账户配置
+                 权限要求：ACCOUNT_UPDATE 或 ADMIN 或 SELF(部分字段)
+                 可能的错误码：USER_NOT_FOUND, PERMISSION_DENIED, INVALID_ARGUMENT
+            operationId: AccountService_UpdateAccountConfig
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/UpdateAccountConfigRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content: {}
+                default:
+                    description: Default error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Status'
+    /v1/account/disable:
+        post:
+            tags:
+                - AccountService
+            description: |-
+                禁用账户
+                 禁用指定用户的账户
+                 权限要求：ACCOUNT_DISABLE 或 ADMIN
+                 可能的错误码：USER_NOT_FOUND, PERMISSION_DENIED
+                 示例请求:
+                 {
+                   "user_id": 123,
+                   "reason": "用户已离职"
+                 }
+            operationId: AccountService_DisableAccount
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/DisableAccountRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content: {}
+                default:
+                    description: Default error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Status'
+    /v1/account/enable:
+        post:
+            tags:
+                - AccountService
+            description: |-
+                启用账户
+                 启用指定用户的账户
+                 权限要求：ACCOUNT_ENABLE 或 ADMIN
+                 可能的错误码：USER_NOT_FOUND, PERMISSION_DENIED
+                 示例请求: {"user_id": 123}
+            operationId: AccountService_EnableAccount
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/EnableAccountRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content: {}
+                default:
+                    description: Default error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Status'
+    /v1/account/lock:
+        post:
+            tags:
+                - AccountService
+            description: |-
+                锁定账户
+                 锁定指定用户的账户
+                 权限要求：ACCOUNT_LOCK 或 ADMIN
+                 可能的错误码：USER_NOT_FOUND, PERMISSION_DENIED
+                 示例请求:
+                 {
+                   "user_id": 123,
+                   "reason": "违反安全策略",
+                   "lock_until": "2023-12-31T23:59:59Z"
+                 }
+            operationId: AccountService_LockAccount
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/LockAccountRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content: {}
+                default:
+                    description: Default error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Status'
+    /v1/account/password/validate:
+        post:
+            tags:
+                - AccountService
+            description: |-
+                验证密码强度
+                 验证密码是否符合密码策略
+                 权限要求：无需认证
+                 可能的错误码：INVALID_ARGUMENT
+            operationId: AccountService_ValidatePasswordStrength
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/ValidatePasswordStrengthRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidatePasswordStrengthResponse'
+                default:
+                    description: Default error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Status'
+    /v1/account/security:
+        get:
+            tags:
+                - AccountService
+            description: |-
+                获取账户安全设置
+                 获取指定用户的账户安全设置
+                 权限要求：ACCOUNT_READ 或 ADMIN 或 SELF
+                 可能的错误码：USER_NOT_FOUND, PERMISSION_DENIED
+            operationId: AccountService_GetAccountSecurity
+            parameters:
+                - name: userId
+                  in: query
+                  description: 用户ID
+                  schema:
+                    type: integer
+                    format: uint32
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/AccountSecurity'
+                default:
+                    description: Default error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Status'
+        put:
+            tags:
+                - AccountService
+            description: |-
+                更新账户安全设置
+                 更新指定用户的账户安全设置
+                 权限要求：ACCOUNT_UPDATE 或 ADMIN 或 SELF(部分字段)
+                 可能的错误码：USER_NOT_FOUND, PERMISSION_DENIED, INVALID_ARGUMENT
+            operationId: AccountService_UpdateAccountSecurity
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/UpdateAccountSecurityRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content: {}
+                default:
+                    description: Default error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Status'
+    /v1/account/status:
+        get:
+            tags:
+                - AccountService
+            description: |-
+                获取账户状态
+                 获取指定用户的账户状态信息
+                 权限要求：ACCOUNT_READ 或 ADMIN 或 SELF
+                 可能的错误码：USER_NOT_FOUND, PERMISSION_DENIED
+            operationId: AccountService_GetAccountStatus
+            parameters:
+                - name: userId
+                  in: query
+                  description: 用户唯一标识符
+                  schema:
+                    type: integer
+                    format: uint32
+                - name: tenantId
+                  in: query
+                  description: 租户ID（可选，用于多租户场景）
+                  schema:
+                    type: integer
+                    format: uint32
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/AccountStatus'
+                default:
+                    description: Default error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Status'
+        put:
+            tags:
+                - AccountService
+            description: |-
+                更新账户状态
+                 更新指定用户的账户状态
+                 权限要求：ACCOUNT_UPDATE 或 ADMIN
+                 可能的错误码：USER_NOT_FOUND, PERMISSION_DENIED, INVALID_ARGUMENT
+                 示例请求:
+                 {
+                   "user_id": 123,
+                   "status": "LOCKED",
+                   "reason": "违反安全策略",
+                   "lock_until": "2023-12-31T23:59:59Z"
+                 }
+            operationId: AccountService_UpdateAccountStatus
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/UpdateAccountStatusRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content: {}
+                default:
+                    description: Default error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Status'
+    /v1/account/status/batch:
+        put:
+            tags:
+                - AccountService
+            description: |-
+                批量更新账户状态
+                 批量更新多个用户的账户状态
+                 权限要求：ACCOUNT_UPDATE 或 ADMIN
+                 可能的错误码：USER_NOT_FOUND, PERMISSION_DENIED, INVALID_ARGUMENT
+            operationId: AccountService_BatchUpdateAccountStatus
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/BatchUpdateAccountStatusRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/BatchUpdateAccountStatusResponse'
+                default:
+                    description: Default error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Status'
+    /v1/account/third-party-accounts:
+        get:
+            tags:
+                - AccountService
+            description: |-
+                获取账户绑定的第三方账号
+                 获取指定用户绑定的第三方账号列表
+                 权限要求：ACCOUNT_READ 或 ADMIN 或 SELF
+                 可能的错误码：USER_NOT_FOUND, PERMISSION_DENIED
+            operationId: AccountService_GetThirdPartyAccounts
+            parameters:
+                - name: userId
+                  in: query
+                  description: 用户ID
+                  schema:
+                    type: integer
+                    format: uint32
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/GetThirdPartyAccountsResponse'
+                default:
+                    description: Default error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Status'
+        post:
+            tags:
+                - AccountService
+            description: |-
+                绑定第三方账号
+                 为指定用户绑定第三方账号
+                 权限要求：ACCOUNT_UPDATE 或 ADMIN 或 SELF
+                 可能的错误码：USER_NOT_FOUND, PERMISSION_DENIED, INVALID_ARGUMENT
+            operationId: AccountService_BindThirdPartyAccount
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/BindThirdPartyAccountRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content: {}
+                default:
+                    description: Default error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Status'
+    /v1/account/third-party-accounts/{provider}/{accountId}:
+        delete:
+            tags:
+                - AccountService
+            description: |-
+                解绑第三方账号
+                 为指定用户解绑第三方账号
+                 权限要求：ACCOUNT_UPDATE 或 ADMIN 或 SELF
+                 可能的错误码：USER_NOT_FOUND, PERMISSION_DENIED, INVALID_ARGUMENT
+            operationId: AccountService_UnbindThirdPartyAccount
+            parameters:
+                - name: provider
+                  in: path
+                  description: 提供商
+                  required: true
+                  schema:
+                    type: string
+                - name: accountId
+                  in: path
+                  description: 第三方账号ID
+                  required: true
+                  schema:
+                    type: string
+                - name: userId
+                  in: query
+                  description: 用户ID
+                  schema:
+                    type: integer
+                    format: uint32
+            responses:
+                "200":
+                    description: OK
+                    content: {}
+                default:
+                    description: Default error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Status'
+    /v1/account/unlock:
+        post:
+            tags:
+                - AccountService
+            description: |-
+                解锁账户
+                 解锁指定用户的账户
+                 权限要求：ACCOUNT_UNLOCK 或 ADMIN
+                 可能的错误码：USER_NOT_FOUND, PERMISSION_DENIED
+                 示例请求: {"user_id": 123}
+            operationId: AccountService_UnlockAccount
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/UnlockAccountRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content: {}
+                default:
+                    description: Default error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Status'
 components:
-    schemas: {}
+    schemas:
+        AccountConfig:
+            type: object
+            properties:
+                userId:
+                    type: integer
+                    description: 用户ID
+                    format: uint32
+                language:
+                    type: string
+                    description: 语言设置
+                timezone:
+                    type: string
+                    description: 时区设置
+                dateFormat:
+                    type: string
+                    description: 日期格式
+                timeFormat:
+                    type: string
+                    description: 时间格式
+                theme:
+                    type: string
+                    description: 主题设置
+                notificationSettings:
+                    allOf:
+                        - $ref: '#/components/schemas/AccountConfig_NotificationSettings'
+                    description: 通知设置
+                customSettings:
+                    type: object
+                    description: 自定义配置
+            description: 账户配置
+        AccountConfig_NotificationSettings:
+            type: object
+            properties:
+                emailEnabled:
+                    type: boolean
+                    description: 是否启用邮件通知
+                smsEnabled:
+                    type: boolean
+                    description: 是否启用短信通知
+                inAppEnabled:
+                    type: boolean
+                    description: 是否启用站内通知
+                pushEnabled:
+                    type: boolean
+                    description: 是否启用移动推送
+            description: 通知设置
+        AccountSecurity:
+            type: object
+            properties:
+                userId:
+                    type: integer
+                    description: 用户ID
+                    format: uint32
+                twoFactorEnabled:
+                    type: boolean
+                    description: 是否启用双因素认证
+                twoFactorType:
+                    type: string
+                    description: 双因素认证类型：APP, SMS, EMAIL
+                loginNotification:
+                    type: boolean
+                    description: 是否启用登录通知
+                unusualLoginDetection:
+                    type: boolean
+                    description: 是否启用异常登录检测
+                ipRestriction:
+                    type: boolean
+                    description: 是否启用IP限制
+                allowedIps:
+                    type: array
+                    items:
+                        type: string
+                    description: 允许的IP列表
+                deviceRestriction:
+                    type: boolean
+                    description: 是否启用设备限制
+                allowedDevices:
+                    type: array
+                    items:
+                        type: string
+                    description: 允许的设备列表
+                updatedAt:
+                    type: string
+                    description: 最后更新时间
+                    format: date-time
+            description: 账户安全设置
+        AccountStatus:
+            type: object
+            properties:
+                userId:
+                    type: integer
+                    description: 用户ID
+                    format: uint32
+                status:
+                    type: integer
+                    description: 账户状态
+                    format: enum
+                reason:
+                    type: string
+                    description: 状态原因
+                lockUntil:
+                    type: string
+                    description: 锁定截止时间
+                    format: date-time
+                failedLoginAttempts:
+                    type: integer
+                    description: 失败登录次数
+                    format: uint32
+                lastLoginTime:
+                    type: string
+                    description: 最后登录时间
+                    format: date-time
+                lastLoginIp:
+                    type: string
+                    description: 最后登录IP
+                passwordExpiresAt:
+                    type: string
+                    description: 密码过期时间
+                    format: date-time
+                requirePasswordChange:
+                    type: boolean
+                    description: 是否需要修改密码
+                createdAt:
+                    type: string
+                    description: 账户创建时间
+                    format: date-time
+                updatedAt:
+                    type: string
+                    description: 账户更新时间
+                    format: date-time
+                auditInfo:
+                    allOf:
+                        - $ref: '#/components/schemas/AuditInfo'
+                    description: 审计信息
+            description: 账户状态
+        AuditInfo:
+            type: object
+            properties:
+                createBy:
+                    type: integer
+                    description: 创建者ID
+                    format: uint32
+                createTime:
+                    type: string
+                    description: 创建时间
+                    format: date-time
+                updateBy:
+                    type: integer
+                    description: 更新者ID
+                    format: uint32
+                updateTime:
+                    type: string
+                    description: 更新时间
+                    format: date-time
+            description: |-
+                基础审计信息
+                 用于记录数据创建和更新的相关信息，可被其他消息类型复用
+        BatchOperationResult:
+            type: object
+            properties:
+                successCount:
+                    type: integer
+                    description: 成功处理的记录数
+                    format: uint32
+                failureCount:
+                    type: integer
+                    description: 失败的记录数
+                    format: uint32
+                skippedCount:
+                    type: integer
+                    description: 跳过的记录数
+                    format: uint32
+                failures:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/BatchOperationResult_FailureDetail'
+                    description: 失败详情列表
+                successIds:
+                    type: array
+                    items:
+                        type: string
+                    description: 成功处理的ID列表
+            description: |-
+                =====================
+                 通用批量操作结果结构
+                 =====================
+                 标准批量操作结果，提供详细的成功/失败统计和错误信息
+                 使用场景：批量创建用户、批量更新角色、批量删除权限等所有批量操作
+        BatchOperationResult_FailureDetail:
+            type: object
+            properties:
+                id:
+                    type: string
+                    description: 记录ID或索引
+                errorCode:
+                    type: integer
+                    description: 错误码
+                    format: int32
+                errorMessage:
+                    type: string
+                    description: 错误消息
+                originalData:
+                    type: object
+                    description: 导致错误的原始数据
+            description: 详细的失败记录
+        BatchUpdateAccountStatusRequest:
+            type: object
+            properties:
+                userIds:
+                    type: array
+                    items:
+                        type: integer
+                        format: uint32
+                    description: 用户ID列表
+                status:
+                    type: integer
+                    description: 账户状态
+                    format: enum
+                reason:
+                    type: string
+                    description: 状态原因
+                lockUntil:
+                    type: string
+                    description: 锁定截止时间
+                    format: date-time
+                requirePasswordChange:
+                    type: boolean
+                    description: 是否需要修改密码
+                skipNotFound:
+                    type: boolean
+                    description: 是否跳过不存在的用户
+            description: 批量更新账户状态请求
+        BatchUpdateAccountStatusResponse:
+            type: object
+            properties:
+                result:
+                    allOf:
+                        - $ref: '#/components/schemas/BatchOperationResult'
+                    description: 批量操作结果
+            description: 批量更新账户状态响应
+        BindThirdPartyAccountRequest:
+            type: object
+            properties:
+                userId:
+                    type: integer
+                    description: 用户ID
+                    format: uint32
+                provider:
+                    type: string
+                    description: 提供商
+                accountId:
+                    type: string
+                    description: 第三方账号ID
+                accountName:
+                    type: string
+                    description: 账号名称
+                avatar:
+                    type: string
+                    description: 账号头像
+                accessToken:
+                    type: string
+                    description: 访问令牌
+                refreshToken:
+                    type: string
+                    description: 刷新令牌
+                tokenExpiresAt:
+                    type: string
+                    description: 令牌过期时间
+                    format: date-time
+                extraInfo:
+                    type: object
+                    description: 额外信息
+            description: 绑定第三方账号请求
+        DisableAccountRequest:
+            type: object
+            properties:
+                userId:
+                    type: integer
+                    description: 用户ID
+                    format: uint32
+                reason:
+                    type: string
+                    description: 禁用原因
+            description: 禁用账户请求
+        EnableAccountRequest:
+            type: object
+            properties:
+                userId:
+                    type: integer
+                    description: 用户ID
+                    format: uint32
+            description: 启用账户请求
+        GetAccountAuditLogsResponse:
+            type: object
+            properties:
+                pagination:
+                    allOf:
+                        - $ref: '#/components/schemas/PaginatedResponse'
+                    description: 分页信息
+                logs:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/GetAccountAuditLogsResponse_AuditLogEntry'
+                    description: 审计日志列表
+            description: 获取账户审计日志响应
+        GetAccountAuditLogsResponse_AuditLogEntry:
+            type: object
+            properties:
+                id:
+                    type: string
+                    description: 日志ID
+                userId:
+                    type: integer
+                    description: 用户ID
+                    format: uint32
+                operationType:
+                    type: string
+                    description: 操作类型
+                operationTime:
+                    type: string
+                    description: 操作时间
+                    format: date-time
+                operatorId:
+                    type: integer
+                    description: 操作者ID
+                    format: uint32
+                operatorName:
+                    type: string
+                    description: 操作者名称
+                ipAddress:
+                    type: string
+                    description: 操作IP
+                details:
+                    type: object
+                    description: 操作详情
+            description: 审计日志
+        GetThirdPartyAccountsResponse:
+            type: object
+            properties:
+                accounts:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/GetThirdPartyAccountsResponse_ThirdPartyAccount'
+                    description: 第三方账号列表
+            description: 获取第三方账号响应
+        GetThirdPartyAccountsResponse_ThirdPartyAccount:
+            type: object
+            properties:
+                provider:
+                    type: string
+                    description: 提供商
+                accountId:
+                    type: string
+                    description: 第三方账号ID
+                accountName:
+                    type: string
+                    description: 账号名称
+                bindTime:
+                    type: string
+                    description: 绑定时间
+                    format: date-time
+                lastUsedTime:
+                    type: string
+                    description: 最后使用时间
+                    format: date-time
+                avatar:
+                    type: string
+                    description: 账号头像
+            description: 第三方账号
+        GoogleProtobufAny:
+            type: object
+            properties:
+                '@type':
+                    type: string
+                    description: The type of the serialized message.
+            additionalProperties: true
+            description: Contains an arbitrary serialized message along with a @type that describes the type of the serialized message.
+        LockAccountRequest:
+            type: object
+            properties:
+                userId:
+                    type: integer
+                    description: 用户ID
+                    format: uint32
+                reason:
+                    type: string
+                    description: 锁定原因
+                lockUntil:
+                    type: string
+                    description: 锁定截止时间
+                    format: date-time
+            description: 锁定账户请求
+        PaginatedResponse:
+            type: object
+            properties:
+                total:
+                    type: string
+                    description: 总记录数
+                page:
+                    type: integer
+                    description: 当前页码
+                    format: uint32
+                pageSize:
+                    type: integer
+                    description: 每页记录数
+                    format: uint32
+                totalPages:
+                    type: integer
+                    description: 总页数
+                    format: uint32
+                hasNext:
+                    type: boolean
+                    description: 是否有下一页
+                hasPrevious:
+                    type: boolean
+                    description: 是否有上一页
+            description: |-
+                分页响应包装器
+                 用于包装分页查询的响应结果，提供统一的分页信息
+        Status:
+            type: object
+            properties:
+                code:
+                    type: integer
+                    description: The status code, which should be an enum value of [google.rpc.Code][google.rpc.Code].
+                    format: int32
+                message:
+                    type: string
+                    description: A developer-facing error message, which should be in English. Any user-facing error message should be localized and sent in the [google.rpc.Status.details][google.rpc.Status.details] field, or localized by the client.
+                details:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/GoogleProtobufAny'
+                    description: A list of messages that carry the error details.  There is a common set of message types for APIs to use.
+            description: 'The `Status` type defines a logical error model that is suitable for different programming environments, including REST APIs and RPC APIs. It is used by [gRPC](https://github.com/grpc). Each `Status` message contains three pieces of data: error code, error message, and error details. You can find out more about this error model and how to work with it in the [API Design Guide](https://cloud.google.com/apis/design/errors).'
+        UnlockAccountRequest:
+            type: object
+            properties:
+                userId:
+                    type: integer
+                    description: 用户ID
+                    format: uint32
+            description: 解锁账户请求
+        UpdateAccountConfigRequest:
+            type: object
+            properties:
+                userId:
+                    type: integer
+                    description: 用户ID
+                    format: uint32
+                config:
+                    allOf:
+                        - $ref: '#/components/schemas/AccountConfig'
+                    description: 账户配置
+                updateMask:
+                    type: string
+                    description: 更新掩码
+                    format: field-mask
+            description: 更新账户配置请求
+        UpdateAccountSecurityRequest:
+            type: object
+            properties:
+                userId:
+                    type: integer
+                    description: 用户ID
+                    format: uint32
+                security:
+                    allOf:
+                        - $ref: '#/components/schemas/AccountSecurity'
+                    description: 账户安全设置
+                updateMask:
+                    type: string
+                    description: 更新掩码
+                    format: field-mask
+            description: 更新账户安全设置请求
+        UpdateAccountStatusRequest:
+            type: object
+            properties:
+                userId:
+                    type: integer
+                    description: 用户唯一标识符
+                    format: uint32
+                status:
+                    type: integer
+                    description: 新的账户状态
+                    format: enum
+                reason:
+                    type: string
+                    description: 状态变更原因
+                operatorId:
+                    type: string
+                    description: 操作者ID
+                tenantId:
+                    type: integer
+                    description: 租户ID
+                    format: uint32
+                lockExpiresAt:
+                    type: string
+                    description: 锁定到期时间
+                    format: date-time
+            description: |-
+                更新账户状态请求
+                 用于修改用户账户状态的请求参数
+        ValidatePasswordStrengthRequest:
+            type: object
+            properties:
+                password:
+                    type: string
+                    description: 密码
+                username:
+                    type: string
+                    description: 用户名（用于检查密码是否包含用户名）
+                userId:
+                    type: integer
+                    description: 用户ID（用于应用特定的密码策略）
+                    format: uint32
+            description: 验证密码强度请求
+        ValidatePasswordStrengthResponse:
+            type: object
+            properties:
+                isValid:
+                    type: boolean
+                    description: 是否通过验证
+                strengthScore:
+                    type: integer
+                    description: 密码强度评分（0-100）
+                    format: uint32
+                failureReasons:
+                    type: array
+                    items:
+                        type: string
+                    description: 失败原因列表
+                suggestions:
+                    type: array
+                    items:
+                        type: string
+                    description: 改进建议
+            description: 验证密码强度响应
+tags:
+    - name: AccountService

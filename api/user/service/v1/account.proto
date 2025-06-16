@@ -1,6 +1,8 @@
 syntax = "proto3";
 
-package user.service.v1;
+// 账户管理服务API定义
+// 提供用户账户状态管理、锁定解锁等功能
+package api.user.service.v1;
 
 import "google/api/annotations.proto";
 import "google/protobuf/empty.proto";
@@ -9,12 +11,24 @@ import "google/protobuf/field_mask.proto";
 import "google/protobuf/struct.proto";
 import "google/protobuf/descriptor.proto";
 import "validate/validate.proto";
+import "gnostic/openapi/v3/annotations.proto";
+
 import "api/user/service/v1/common.proto";
 import "api/user/service/v1/error_codes.proto";
+import "api/user/service/v1/audit.proto";
 
-option go_package = "om-platform/api/user/service/v1;userv1";
+// Go语言包路径配置
+option go_package = "github.com/Sakuya1998/om-platform/api/user/service/v1;userv1";
+// Java多文件生成配置
 option java_multiple_files = true;
-option java_package = "api.user.service.v1";
+// Java包路径配置
+option java_package = "com.omplatform.api.user.service.v1";
+// C#命名空间配置
+option csharp_namespace = "OmPlatform.Api.User.Service.V1";
+// PHP命名空间配置
+option php_namespace = "OmPlatform\\Api\\User\\Service\\V1";
+// Ruby包配置
+option ruby_package = "OmPlatform::Api::User::Service::V1";
 
 // 账户服务 (AccountService)
 // 提供账户状态管理、账户配置和账户安全设置等功能
@@ -32,7 +46,7 @@ service AccountService {
     };
     option (cache) = {
       ttl_seconds: 60
-      key_pattern: "status:{user_id}"
+      cache_keys: ["status:{user_id}"]
     };
   }
 
@@ -156,7 +170,7 @@ service AccountService {
     };
     option (cache) = {
       ttl_seconds: 300
-      key_pattern: "config:{user_id}"
+      cache_keys: ["user_id"]
     };
   }
 
@@ -185,7 +199,7 @@ service AccountService {
     };
     option (cache) = {
       ttl_seconds: 300
-      key_pattern: "security:{user_id}"
+      cache_keys: ["user_id"]
     };
   }
 
@@ -252,7 +266,6 @@ service AccountService {
     option (rate_limit) = {
       requests_per_second: 10
       burst: 20
-      per_ip: true
     };
   }
 
@@ -266,7 +279,7 @@ service AccountService {
     };
     option (cache) = {
       ttl_seconds: 60
-      key_pattern: "audit:{user_id}:{page}:{size}"
+      cache_keys: ["user_id", "page", "size"]
     };
   }
 
@@ -280,7 +293,7 @@ service AccountService {
     };
     option (cache) = {
       ttl_seconds: 300
-      key_pattern: "third_party:{user_id}"
+      cache_keys: ["user_id"]
     };
   }
 
@@ -390,44 +403,58 @@ message AccountStatus {
 }
 
 // 获取账户状态请求
+// 用于查询指定用户的账户状态信息
 message GetAccountStatusRequest {
-  // 用户ID
+  // 用户唯一标识符
   uint32 user_id = 1 [
     json_name = "userId",
-    (gnostic.openapi.v3.property) = {description: "用户ID"}
+    (gnostic.openapi.v3.property) = {description: "用户唯一标识符"}
+  ];
+  
+  // 租户ID（可选，用于多租户场景）
+  optional uint32 tenant_id = 2 [
+    json_name = "tenantId",
+    (gnostic.openapi.v3.property) = {description: "租户ID"}
   ];
 }
 
 // 更新账户状态请求
+// 用于修改用户账户状态的请求参数
 message UpdateAccountStatusRequest {
-  // 用户ID
+  // 用户唯一标识符
   uint32 user_id = 1 [
     json_name = "userId",
-    (gnostic.openapi.v3.property) = {description: "用户ID"}
+    (gnostic.openapi.v3.property) = {description: "用户唯一标识符"}
   ];
   
-  // 账户状态
+  // 新的账户状态
   UserAccountStatus status = 2 [
     json_name = "status",
-    (gnostic.openapi.v3.property) = {description: "账户状态"}
+    (gnostic.openapi.v3.property) = {description: "新的账户状态"}
   ];
   
-  // 状态原因
+  // 状态变更原因
   optional string reason = 3 [
     json_name = "reason",
-    (gnostic.openapi.v3.property) = {description: "状态原因"}
+    (gnostic.openapi.v3.property) = {description: "状态变更原因"}
   ];
   
-  // 锁定截止时间
-  optional google.protobuf.Timestamp lock_until = 4 [
-    json_name = "lockUntil",
-    (gnostic.openapi.v3.property) = {description: "锁定截止时间"}
+  // 操作者ID
+  optional string operator_id = 4 [
+    json_name = "operatorId",
+    (gnostic.openapi.v3.property) = {description: "操作者ID"}
   ];
   
-  // 是否需要修改密码
-  optional bool require_password_change = 5 [
-    json_name = "requirePasswordChange",
-    (gnostic.openapi.v3.property) = {description: "是否需要修改密码"}
+  // 租户ID（可选，用于多租户场景）
+  optional uint32 tenant_id = 5 [
+    json_name = "tenantId",
+    (gnostic.openapi.v3.property) = {description: "租户ID"}
+  ];
+  
+  // 锁定到期时间（仅当状态为锁定时有效）
+  optional google.protobuf.Timestamp lock_expires_at = 6 [
+    json_name = "lockExpiresAt",
+    (gnostic.openapi.v3.property) = {description: "锁定到期时间"}
   ];
 }
 
@@ -437,36 +464,42 @@ message BatchUpdateAccountStatusRequest {
   repeated uint32 user_ids = 1 [
     json_name = "userIds",
     (gnostic.openapi.v3.property) = {description: "用户ID列表"}
+    //  用户ID列表
   ];
   
   // 账户状态
   UserAccountStatus status = 2 [
     json_name = "status",
     (gnostic.openapi.v3.property) = {description: "账户状态"}
+    // 账户状态
   ];
   
   // 状态原因
   optional string reason = 3 [
     json_name = "reason",
-    (gnostic.openapi.v3.property) = {description: "状态原因"}
+    (gnostic.openapi.v3.property) = {description: "状态原因"}  
+    // 状态原因
   ];
   
   // 锁定截止时间
   optional google.protobuf.Timestamp lock_until = 4 [
     json_name = "lockUntil",
     (gnostic.openapi.v3.property) = {description: "锁定截止时间"}
+    // 锁定截止时间
   ];
   
   // 是否需要修改密码
   optional bool require_password_change = 5 [
     json_name = "requirePasswordChange",
     (gnostic.openapi.v3.property) = {description: "是否需要修改密码"}
+    //  是否需要修改密码
   ];
   
   // 是否跳过不存在的用户
   optional bool skip_not_found = 6 [
     json_name = "skipNotFound",
     (gnostic.openapi.v3.property) = {description: "是否跳过不存在的用户"}
+    //  是否跳过不存在的用户
   ];
 }
 
@@ -476,6 +509,7 @@ message BatchUpdateAccountStatusResponse {
   BatchOperationResult result = 1 [
     json_name = "result",
     (gnostic.openapi.v3.property) = {description: "批量操作结果"}
+    // 批量操作结果
   ];
 }
 
@@ -485,18 +519,21 @@ message LockAccountRequest {
   uint32 user_id = 1 [
     json_name = "userId",
     (gnostic.openapi.v3.property) = {description: "用户ID"}
+    // 用户ID
   ];
   
   // 锁定原因
   optional string reason = 2 [
     json_name = "reason",
     (gnostic.openapi.v3.property) = {description: "锁定原因"}
+    //  锁定原因
   ];
   
   // 锁定截止时间
   optional google.protobuf.Timestamp lock_until = 3 [
     json_name = "lockUntil",
     (gnostic.openapi.v3.property) = {description: "锁定截止时间"}
+    // 锁定截止时间
   ];
 }
 
@@ -506,6 +543,7 @@ message UnlockAccountRequest {
   uint32 user_id = 1 [
     json_name = "userId",
     (gnostic.openapi.v3.property) = {description: "用户ID"}
+    // 用户ID
   ];
 }
 
@@ -515,6 +553,7 @@ message EnableAccountRequest {
   uint32 user_id = 1 [
     json_name = "userId",
     (gnostic.openapi.v3.property) = {description: "用户ID"}
+    // 用户ID
   ];
 }
 
@@ -524,12 +563,14 @@ message DisableAccountRequest {
   uint32 user_id = 1 [
     json_name = "userId",
     (gnostic.openapi.v3.property) = {description: "用户ID"}
+    // 用户ID
   ];
   
   // 禁用原因
   optional string reason = 2 [
     json_name = "reason",
     (gnostic.openapi.v3.property) = {description: "禁用原因"}
+    // 禁用原因
   ];
 }
 
@@ -539,36 +580,42 @@ message AccountConfig {
   uint32 user_id = 1 [
     json_name = "userId",
     (gnostic.openapi.v3.property) = {description: "用户ID"}
+    // 用户ID
   ];
   
   // 语言设置
   string language = 2 [
     json_name = "language",
     (gnostic.openapi.v3.property) = {description: "语言设置"}
+    //  语言设置
   ];
   
   // 时区设置
   string timezone = 3 [
     json_name = "timezone",
     (gnostic.openapi.v3.property) = {description: "时区设置"}
+    //  时区设置
   ];
   
   // 日期格式
   string date_format = 4 [
     json_name = "dateFormat",
     (gnostic.openapi.v3.property) = {description: "日期格式"}
+    //  日期格式
   ];
   
   // 时间格式
   string time_format = 5 [
     json_name = "timeFormat",
     (gnostic.openapi.v3.property) = {description: "时间格式"}
+    //  时间格式
   ];
   
   // 主题设置
   string theme = 6 [
     json_name = "theme",
     (gnostic.openapi.v3.property) = {description: "主题设置"}
+    //  主题设置
   ];
   
   // 通知设置
@@ -577,37 +624,43 @@ message AccountConfig {
     bool email_enabled = 1 [
       json_name = "emailEnabled",
       (gnostic.openapi.v3.property) = {description: "是否启用邮件通知"}
+      //  是否启用邮件通知
     ];
     
     // 是否启用短信通知
     bool sms_enabled = 2 [
       json_name = "smsEnabled",
       (gnostic.openapi.v3.property) = {description: "是否启用短信通知"}
+      //  是否启用短信通知
     ];
     
     // 是否启用站内通知
     bool in_app_enabled = 3 [
       json_name = "inAppEnabled",
       (gnostic.openapi.v3.property) = {description: "是否启用站内通知"}
+      //  是否启用站内通知
     ];
     
     // 是否启用移动推送
     bool push_enabled = 4 [
       json_name = "pushEnabled",
       (gnostic.openapi.v3.property) = {description: "是否启用移动推送"}
+      //  是否启用移动推送
     ];
   }
   
   // 通知设置
   NotificationSettings notification_settings = 7 [
     json_name = "notificationSettings",
-    (gnostic.openapi.v3.property) = {description: "通知设置"}
+    (gnostic.openapi.v3.property) = {description: "通知设置"}    
+    //  通知设置
   ];
   
   // 自定义配置
   google.protobuf.Struct custom_settings = 8 [
     json_name = "customSettings",
     (gnostic.openapi.v3.property) = {description: "自定义配置"}
+    //  自定义配置
   ];
 }
 
@@ -617,6 +670,7 @@ message GetAccountConfigRequest {
   uint32 user_id = 1 [
     json_name = "userId",
     (gnostic.openapi.v3.property) = {description: "用户ID"}
+    // 用户ID
   ];
 }
 
@@ -626,18 +680,21 @@ message UpdateAccountConfigRequest {
   uint32 user_id = 1 [
     json_name = "userId",
     (gnostic.openapi.v3.property) = {description: "用户ID"}
+    // 用户ID
   ];
   
   // 账户配置
   AccountConfig config = 2 [
     json_name = "config",
     (gnostic.openapi.v3.property) = {description: "账户配置"}
+    // 账户配置
   ];
   
   // 更新掩码
   google.protobuf.FieldMask update_mask = 3 [
     json_name = "updateMask",
     (gnostic.openapi.v3.property) = {description: "更新掩码"}
+    // 更新掩码
   ];
 }
 
@@ -647,60 +704,70 @@ message AccountSecurity {
   uint32 user_id = 1 [
     json_name = "userId",
     (gnostic.openapi.v3.property) = {description: "用户ID"}
+    // 用户ID
   ];
   
   // 是否启用双因素认证
   bool two_factor_enabled = 2 [
     json_name = "twoFactorEnabled",
     (gnostic.openapi.v3.property) = {description: "是否启用双因素认证"}
+    // 是否启用双因素认证
   ];
   
   // 双因素认证类型：APP, SMS, EMAIL
   string two_factor_type = 3 [
     json_name = "twoFactorType",
     (gnostic.openapi.v3.property) = {description: "双因素认证类型：APP, SMS, EMAIL"}
+    // 双因素认证类型：APP, SMS, EMAIL
   ];
   
   // 是否启用登录通知
   bool login_notification = 4 [
     json_name = "loginNotification",
     (gnostic.openapi.v3.property) = {description: "是否启用登录通知"}
+    // 是否启用登录通知
   ];
   
   // 是否启用异常登录检测
   bool unusual_login_detection = 5 [
     json_name = "unusualLoginDetection",
     (gnostic.openapi.v3.property) = {description: "是否启用异常登录检测"}
+    // 是否启用异常登录检测
   ];
   
   // 是否启用IP限制
   bool ip_restriction = 6 [
     json_name = "ipRestriction",
     (gnostic.openapi.v3.property) = {description: "是否启用IP限制"}
+    // 是否启用IP限制
   ];
   
   // 允许的IP列表
   repeated string allowed_ips = 7 [
     json_name = "allowedIps",
     (gnostic.openapi.v3.property) = {description: "允许的IP列表"}
+    // 允许的IP列表
   ];
   
   // 是否启用设备限制
   bool device_restriction = 8 [
     json_name = "deviceRestriction",
     (gnostic.openapi.v3.property) = {description: "是否启用设备限制"}
+    // 是否启用设备限制
   ];
   
   // 允许的设备列表
   repeated string allowed_devices = 9 [
     json_name = "allowedDevices",
     (gnostic.openapi.v3.property) = {description: "允许的设备列表"}
+    // 允许的设备列表
   ];
   
   // 最后更新时间
   google.protobuf.Timestamp updated_at = 10 [
     json_name = "updatedAt",
     (gnostic.openapi.v3.property) = {description: "最后更新时间"}
+    // 最后更新时间
   ];
 }
 

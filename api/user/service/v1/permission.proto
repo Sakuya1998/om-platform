@@ -1,20 +1,22 @@
 syntax = "proto3";
 
+// 用户服务权限模块 - 提供权限管理功能
 package user.service.v1;
 
-import "google/api/annotations.proto";
-import "google/protobuf/empty.proto";
-import "google/protobuf/timestamp.proto";
-import "google/protobuf/field_mask.proto";
-import "google/protobuf/struct.proto";
-import "google/protobuf/descriptor.proto";
-import "validate/validate.proto";
-import "api/user/service/v1/common.proto";
-import "api/user/service/v1/error_codes.proto";
-
-option go_package = "om-platform/api/user/service/v1;userv1";
+// 包配置选项
+option go_package = "github.com/Sakuya1998/om-platform/api/user/service/v1;userv1";
 option java_multiple_files = true;
-option java_package = "api.user.service.v1";
+option java_package = "com.omplatform.api.user.service.v1";
+option java_outer_classname = "PermissionProto";
+option csharp_namespace = "OmPlatform.Api.User.Service.V1";
+option php_namespace = "OmPlatform\\Api\\User\\Service\\V1";
+option ruby_package = "OmPlatform::Api::User::Service::V1";
+
+import "google/api/annotations.proto";
+import "google/protobuf/timestamp.proto";
+import "gnostic/openapi/v3/annotations.proto";
+import "common.proto";
+import "error_codes.proto";
 
 // 权限服务 (PermissionService)
 // 提供权限管理、权限检查和权限分配等功能
@@ -365,9 +367,9 @@ message Permission {
   ];
   
   // 权限状态：ACTIVE, INACTIVE
-  string status = 10 [
+  CommonStatus status = 10 [
     json_name = "status",
-    (gnostic.openapi.v3.property) = {description: "权限状态：ACTIVE, INACTIVE"}
+    (gnostic.openapi.v3.property) = {description: "权限状态"}
   ];
   
   // 是否系统内置

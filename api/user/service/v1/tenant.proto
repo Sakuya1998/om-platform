@@ -1,15 +1,22 @@
 syntax = "proto3";
 
+// 用户服务租户模块 - 提供租户管理功能
 package user.service.v1;
+
+// 包配置选项
+option go_package = "github.com/Sakuya1998/om-platform/api/user/service/v1;userv1";
+option java_multiple_files = true;
+option java_package = "com.omplatform.api.user.service.v1";
+option java_outer_classname = "TenantProto";
+option csharp_namespace = "OmPlatform.Api.User.Service.V1";
+option php_namespace = "OmPlatform\\Api\\User\\Service\\V1";
+option ruby_package = "OmPlatform::Api::User::Service::V1";
 
 import "google/api/annotations.proto";
 import "google/protobuf/timestamp.proto";
-import "google/protobuf/descriptor.proto";
-import "validate/validate.proto";
-import "api/user/service/v1/common.proto";
-import "api/user/service/v1/error_codes.proto";
-
-option go_package = "om-platform/api/user/service/v1;userv1";
+import "gnostic/openapi/v3/annotations.proto";
+import "common.proto";
+import "error_codes.proto";
 
 // 租户服务
 service TenantService {
@@ -204,7 +211,7 @@ enum TenantType {
 
 // 租户信息
 message Tenant {
-  string tenant_id = 1 [(validate.rules).string.min_len = 1];
+  uint32 tenant_id = 1;
   string name = 2 [(validate.rules).string.min_len = 1];
   string display_name = 3;
   string description = 4;
@@ -281,7 +288,7 @@ message CreateTenantResponse {
 
 // 获取租户请求
 message GetTenantRequest {
-  string tenant_id = 1 [(validate.rules).string.min_len = 1];
+  uint32 tenant_id = 1;
   repeated string fields = 2; // 字段筛选
 }
 
@@ -295,7 +302,7 @@ message GetTenantResponse {
 
 // 更新租户请求
 message UpdateTenantRequest {
-  string tenant_id = 1 [(validate.rules).string.min_len = 1];
+  uint32 tenant_id = 1;
   string display_name = 2;
   string description = 3;
   string contact_email = 4;
@@ -318,7 +325,7 @@ message UpdateTenantResponse {
 
 // 删除租户请求
 message DeleteTenantRequest {
-  string tenant_id = 1 [(validate.rules).string.min_len = 1];
+  uint32 tenant_id = 1;
   bool force = 2; // 强制删除
 }
 
@@ -369,7 +376,7 @@ message BatchCreateTenantsResponse {
 
 // 批量删除租户请求
 message BatchDeleteTenantsRequest {
-  repeated string tenant_ids = 1 [(validate.rules).repeated.min_items = 1, (validate.rules).repeated.max_items = 100];
+  repeated uint32 tenant_ids = 1 [(validate.rules).repeated.min_items = 1, (validate.rules).repeated.max_items = 100];
   bool force = 2; // 强制删除
 }
 
@@ -383,7 +390,7 @@ message BatchDeleteTenantsResponse {
 
 // 启用租户请求
 message EnableTenantRequest {
-  string tenant_id = 1 [(validate.rules).string.min_len = 1];
+  uint32 tenant_id = 1;
   string reason = 2;
 }
 
@@ -397,7 +404,7 @@ message EnableTenantResponse {
 
 // 禁用租户请求
 message DisableTenantRequest {
-  string tenant_id = 1 [(validate.rules).string.min_len = 1];
+  uint32 tenant_id = 1;
   string reason = 2 [(validate.rules).string.min_len = 1];
 }
 
@@ -411,7 +418,7 @@ message DisableTenantResponse {
 
 // 获取租户配置请求
 message GetTenantConfigRequest {
-  string tenant_id = 1 [(validate.rules).string.min_len = 1];
+  uint32 tenant_id = 1;
 }
 
 // 获取租户配置响应
@@ -424,7 +431,7 @@ message GetTenantConfigResponse {
 
 // 更新租户配置请求
 message UpdateTenantConfigRequest {
-  string tenant_id = 1 [(validate.rules).string.min_len = 1];
+  uint32 tenant_id = 1;
   TenantConfig config = 2;
   repeated string update_mask = 3; // 更新字段掩码
 }
@@ -438,8 +445,8 @@ message UpdateTenantConfigResponse {
 }
 
 // 获取租户统计信息请求
-message GetTenantStatsRequest {
-  string tenant_id = 1 [(validate.rules).string.min_len = 1];
+message GetTenantUsageRequest {
+  uint32 tenant_id = 1;
 }
 
 // 获取租户统计信息响应
@@ -452,12 +459,12 @@ message GetTenantStatsResponse {
 
 // 获取租户审计日志请求
 message GetTenantAuditLogsRequest {
-  string tenant_id = 1 [(validate.rules).string.min_len = 1];
+  uint32 tenant_id = 1;
   PagingRequest paging = 2;
   google.protobuf.Timestamp start_time = 3;
   google.protobuf.Timestamp end_time = 4;
   string action = 5;
-  string user_id = 6;
+  uint32 user_id = 6;
 }
 
 // 获取租户审计日志响应
@@ -475,8 +482,8 @@ message AuditLogsData {
 
 message AuditLog {
   string log_id = 1;
-  string tenant_id = 2;
-  string user_id = 3;
+  uint32 tenant_id = 2;
+  uint32 user_id = 3;
   string action = 4;
   string resource_type = 5;
   string resource_id = 6;
@@ -488,7 +495,7 @@ message AuditLog {
 
 // 导出租户数据请求
 message ExportTenantDataRequest {
-  string tenant_id = 1 [(validate.rules).string.min_len = 1];
+  uint32 tenant_id = 1;
   repeated string data_types = 2; // 导出的数据类型
   string format = 3; // 导出格式 (json, csv, xlsx)
 }
@@ -509,7 +516,7 @@ message ExportResult {
 
 // 导入租户数据请求
 message ImportTenantDataRequest {
-  string tenant_id = 1 [(validate.rules).string.min_len = 1];
+  uint32 tenant_id = 1;
   string file_url = 2 [(validate.rules).string.min_len = 1];
   string format = 3; // 导入格式
   bool overwrite = 4; // 是否覆盖现有数据

@@ -1,1006 +1,372 @@
-# 智能运维平台用户服务 API
+# 用户服务API文档
 
 ## 概述
 
-用户服务 API 是智能运维平台的核心用户管理服务，采用现代化的 API 设计模式，提供统一的错误处理、性能优化和扩展性支持。服务实现了 HTTP/gRPC 双协议支持，提供完整的 RESTful API 映射，便于不同场景下的集成和调用。
+本目录包含用户管理平台的核心API定义，基于Protocol Buffers 3.0规范，提供完整的用户生命周期管理功能。
 
-## 主要特性
-
-### 1. 统一错误处理
-- 引入统一的 `ErrorResponse` 结构
-- 标准化错误码枚举 `ErrorCode`
-- 支持多语言错误消息
-- 详细的错误上下文信息
-
-### 2. 性能优化
-- 内置限流配置 (`RateLimitOptions`)，基于每秒请求数
-- 精细化的突发流量控制 (`burst` 参数)
-- 基于资源路径的缓存策略 (`key_pattern`)
-- 熔断器模式 (`CircuitBreakerOptions`)
-- 字段筛选和分页优化
-- 针对读写操作的差异化限流策略
-
-### 3. API 设计
-- RESTful 风格的 HTTP 映射（所有RPC方法均支持HTTP调用）
-- 统一的请求/响应结构
-- 支持批量操作（统一的`/batch`端点）
-- 流式数据处理
-- 扩展字段支持
-- 标准化的资源路径（如`/v1/users/{user_id}/roles`）
-- 符合HTTP语义的方法映射（GET/POST/PUT/DELETE）
-
-### 4. 功能增强
-- 完整的审计日志
-- 多租户支持
-- 身份提供商集成
-- 高级权限管理
-- 数据导入导出
-
-## HTTP API 端点映射
-
-所有 gRPC 服务方法都已配置了对应的 HTTP 端点，支持 RESTful 风格的 API 调用：
-
-### 用户管理 API
-- `GET /v1/users` - 获取用户列表
-- `GET /v1/users/{user_id}` - 获取单个用户
-- `GET /v1/users/by-username/{username}` - 根据用户名获取用户
-- `POST /v1/users/by-ids` - 批量获取用户信息
-- `POST /v1/users` - 创建用户
-- `PUT /v1/users/{user_id}` - 更新用户
-- `DELETE /v1/users/{user_id}` - 删除用户
-- `POST /v1/users/batch` - 批量创建用户
-- `PUT /v1/users/batch` - 批量更新用户
-- `DELETE /v1/users/batch` - 批量删除用户
-- `GET /v1/users/exists` - 检查用户是否存在
-- `GET /v1/users/{user_id}/roles` - 获取用户角色
-- `POST /v1/users/{user_id}/roles` - 分配用户角色
-- `DELETE /v1/users/{user_id}/roles` - 撤销用户角色
-- `GET /v1/users/{user_id}/permissions` - 获取用户有效权限
-- `GET /v1/users/{user_id}/permissions/{permission_code}` - 检查用户权限
-- `DELETE /v1/users/{user_id}/permissions/cache` - 清除用户权限缓存
-- `GET /v1/users/{user_id}/dynamic-roles` - 获取用户动态角色
-- `GET /v1/users/{user_id}/permission-audit-logs` - 获取用户权限审计日志
-- `GET /v1/users/stream` - 流式获取用户列表
-- `POST /v1/users/export` - 流式导出用户数据
-- `POST /v1/users/import` - 流式导入用户数据
-
-### 认证管理 API
-- `POST /v1/auth/login` - 用户登录
-- `POST /v1/auth/logout` - 用户登出
-- `POST /v1/auth/refresh` - 刷新令牌
-- `POST /v1/auth/validate` - 验证令牌
-- `POST /v1/auth/change-password` - 修改密码
-- `POST /v1/auth/reset-password` - 重置密码
-- `POST /v1/auth/send-reset-code` - 发送密码重置验证码
-- `POST /v1/auth/sessions` - 创建会话
-- `GET /v1/auth/sessions/{session_id}` - 获取会话信息
-- `PUT /v1/auth/sessions/{session_id}` - 更新会话
-- `DELETE /v1/auth/sessions/{session_id}` - 终止会话
-- `POST /v1/auth/sessions/batch-terminate` - 批量终止会话
-- `GET /v1/auth/users/{user_id}/sessions` - 查询用户会话
-- `GET /v1/auth/users/{user_id}/login-history` - 获取登录历史
-- `POST /v1/auth/users/{user_id}/two-factor` - 设置双因素认证
-- `POST /v1/auth/verify-two-factor` - 验证双因素认证
-
-### 角色管理 API
-- `GET /v1/roles` - 获取角色列表
-- `GET /v1/roles/{role_id}` - 获取角色详情
-- `POST /v1/roles` - 创建角色
-- `PUT /v1/roles/{role_id}` - 更新角色
-- `DELETE /v1/roles/{role_id}` - 删除角色
-- `POST /v1/roles/by-ids` - 批量获取角色信息
-- `POST /v1/roles/batch` - 批量创建角色
-- `PUT /v1/roles/batch` - 批量更新角色
-- `DELETE /v1/roles/batch` - 批量删除角色
-- `GET /v1/roles/{role_id}/permissions` - 获取角色权限
-- `POST /v1/roles/{role_id}/permissions` - 分配角色权限
-- `DELETE /v1/roles/{role_id}/permissions` - 撤销角色权限
-- `GET /v1/roles/{role_id}/users` - 获取角色用户列表
-- `GET /v1/roles/{role_id}/audit-logs` - 获取角色审计日志
-
-### 权限管理 API
-- `GET /v1/permissions` - 获取权限列表
-- `GET /v1/permissions/{permission_id}` - 获取权限详情
-- `POST /v1/permissions` - 创建权限
-- `PUT /v1/permissions/{permission_id}` - 更新权限
-- `DELETE /v1/permissions/{permission_id}` - 删除权限
-- `POST /v1/permissions/by-ids` - 批量获取权限信息
-- `POST /v1/permissions/batch` - 批量创建权限
-- `PUT /v1/permissions/batch` - 批量更新权限
-- `DELETE /v1/permissions/batch` - 批量删除权限
-- `POST /v1/permissions/check` - 检查权限
-- `POST /v1/permissions/batch-check` - 批量检查权限
-- `GET /v1/permissions/tree` - 获取权限树
-- `GET /v1/permissions/{permission_id}/children` - 获取子权限列表
-- `GET /v1/permissions/{permission_id}/audit-logs` - 获取权限审计日志
-
-## 服务列表
+## 服务架构
 
 ### 核心服务
 
-1. **UserService** (`user.proto`) - ✅ 已完成HTTP映射
-   - 用户 CRUD 操作
-   - 批量用户管理
-   - 用户角色和权限
-   - 流式数据处理
-   - 权限缓存管理
-   - 动态角色计算
-   - 权限审计日志
+- **UserService**: 用户基础信息管理（增删改查、批量操作）
+- **AccountService**: 账户状态管理（锁定、解锁、状态变更）
+- **AuthenticationService**: 认证服务（登录、登出、令牌管理）
+- **RoleService**: 角色权限管理
+- **PermissionService**: 权限管理
+- **OrganizationService**: 组织架构管理
+- **DepartmentService**: 部门管理
+- **TenantService**: 多租户管理
+- **IdentityProviderService**: 身份提供商管理
+- **AuditService**: 审计日志服务
 
-2. **AuthenticationService** (`authentication.proto`) - ✅ 已完成HTTP映射
-   - 用户认证（多种认证方式）
-   - 令牌管理（访问令牌、刷新令牌）
-   - 会话管理（创建、查询、更新、终止）
-   - 密码管理（修改、重置、验证码）
-   - 双因素认证
-   - 登录历史记录
+## 设计规范
 
-3. **AccountService** (`account.proto`) - ✅ 已完成HTTP映射
-   - 账户状态管理
-   - 账户锁定/解锁
-   - 账户启用/禁用
-   - 账户配置管理
-   - 批量账户操作
+### 1. 包结构与Option规范
 
-### 组织架构服务
-
-4. **OrganizationService** (`organization.proto`) - ✅ 已完成HTTP映射
-   - 组织管理（CRUD操作）
-   - 组织结构管理
-   - 成员管理
-   - 批量操作（创建、更新、删除、查询）
-
-5. **DepartmentService** (`department.proto`) - ✅ 已完成HTTP映射
-   - 部门管理（CRUD操作）
-   - 部门层级结构
-   - 成员分配管理
-   - 批量操作支持
-   - 数据导入导出
-
-### 权限管理服务
-
-6. **RoleService** (`role.proto`) - ✅ 已完成HTTP映射
-   - 角色定义和管理
-   - 角色继承关系
-   - 角色权限分配
-   - 批量角色管理
-   - 角色用户关联
-   - 角色审计日志
-
-7. **PermissionService** (`permission.proto`) - ✅ 已完成HTTP映射
-   - 权限定义和管理
-   - 权限树结构管理
-   - 资源权限控制
-   - 权限检查和验证
-   - 批量权限操作
-   - 权限审计追踪
-
-### 多租户和集成服务
-
-8. **TenantService** (`tenant.proto`) - ✅ 已完成HTTP映射
-   - 租户管理（CRUD操作）
-   - 租户配置管理
-   - 租户启用/禁用
-   - 资源隔离控制
-   - 租户统计分析
-
-9. **IdentityProviderService** (`identity_provider.proto`) - ✅ 已完成HTTP映射
-   - 身份提供商管理
-   - LDAP/SAML/OIDC 集成
-   - 用户同步功能
-   - 连接测试和验证
-   - 身份提供商启用/禁用
-   - 同步状态监控
-   - 审计日志记录
-
-### 审计和通用组件
-
-10. **AuditService** (`audit.proto`) - ✅ 已完成HTTP映射
-    - 审计日志记录
-    - 审计日志查询
-    - 操作追踪
-    - 合规性报告
-
-11. **Common** (`common.proto`) - ✅ 通用组件
-    - 通用枚举和结构
-    - 分页和排序
-    - 审计信息
-    - 批量操作结果
-    - 扩展选项定义
-
-12. **Error Codes** (`error_codes.proto`) - ✅ 错误处理
-    - 统一错误码枚举
-    - 错误响应结构
-    - 限流和缓存选项
-    - 熔断器配置
-
-## API 设计特性
-
-### 1. 错误处理
+所有proto文件统一使用以下配置：
 
 ```protobuf
-message CreateUserResponse {
-  oneof result {
-    User user = 1;
-    ErrorResponse error = 2;
-  }
-}
+package api.user.service.v1;
+
+// Go语言包路径配置
+option go_package = "github.com/Sakuya1998/om-platform/api/user/service/v1;userv1";
+// Java包路径配置
+option java_package = "com.omplatform.api.user.service.v1";
+// Java多文件生成配置
+option java_multiple_files = true;
+// C#命名空间配置
+option csharp_namespace = "OmPlatform.Api.User.Service.V1";
+// PHP命名空间配置
+option php_namespace = "OmPlatform\\Api\\User\\Service\\V1";
+// Ruby包配置
+option ruby_package = "OmPlatform::Api::User::Service::V1";
 ```
 
-### 2. 分页查询
+### 2. 通用消息结构
+
+#### 分页请求 (PagingRequest)
 
 ```protobuf
-message ListUsersRequest {
-  PagingRequest paging = 1;
-  repeated SortOption sort_options = 2;
-  repeated string fields = 3; // 字段筛选
-}
-
-message ListUsersResponse {
-  oneof result {
-    UsersData data = 1;
-    ErrorResponse error = 2;
-  }
-}
-
-message UsersData {
-  repeated User users = 1;
-  PaginatedResponse pagination = 2;
+message PagingRequest {
+  optional int32 page = 1;      // 页码，从1开始
+  optional int32 page_size = 2; // 每页记录数，默认20，最大100
+  optional int32 offset = 3;    // 偏移量（可选，与page互斥）
+  optional int32 limit = 4;     // 限制数量（可选，与page_size互斥）
 }
 ```
 
-### 3. 批量操作
+#### 分页响应 (PagingResponse)
 
 ```protobuf
-// 批量创建用户
-rpc BatchCreateUsers(BatchCreateUsersRequest) returns (BatchCreateUsersResponse);
-
-// 批量更新用户
-rpc BatchUpdateUsers(BatchUpdateUsersRequest) returns (BatchUpdateUsersResponse);
-
-// 批量删除用户
-rpc BatchDeleteUsers(BatchDeleteUsersRequest) returns (BatchDeleteUsersResponse);
-```
-
-### 4. 字段筛选和更新掩码
-
-**字段筛选:**
-```protobuf
-message GetUserRequest {
-  string user_id = 1;
-  repeated string fields = 2; // 只返回指定字段
+message PagingResponse {
+  int32 total_count = 1;        // 总记录数
+  int32 page = 2;               // 当前页码
+  int32 page_size = 3;          // 每页记录数
+  int32 total_pages = 4;        // 总页数
+  bool has_next = 5;            // 是否有下一页
+  bool has_previous = 6;        // 是否有上一页
 }
 ```
 
-**更新掩码:**
+#### 错误响应 (ErrorResponse)
+
 ```protobuf
-message UpdateUserRequest {
-  string user_id = 1;
-  User user = 2;
-  repeated string update_mask = 3; // 只更新指定字段
+message ErrorResponse {
+  ErrorCode code = 1;                    // 错误码
+  string message = 2;                    // 错误消息
+  string details = 3;                    // 详细信息
+  map<string, string> i18n_messages = 4; // 国际化消息
+  google.protobuf.Timestamp timestamp = 5; // 错误时间戳
+  string trace_id = 6;                   // 链路追踪ID
 }
 ```
 
-## 协议支持
-
-### HTTP/gRPC 双协议支持
-
-所有服务同时支持 HTTP 和 gRPC 协议：
-
-- **gRPC**: 高性能的二进制协议，适用于服务间通信
-- **HTTP**: RESTful API，适用于前端和第三方集成
-- **统一配置**: 限流、缓存、熔断器等配置对两种协议均生效
-
-### 配置优化亮点
-
-1. **限流策略升级**
-   - 从 `requests_per_minute` 升级为 `requests_per_second`
-   - 支持突发流量控制 (`burst` 参数)
-   - 针对不同操作类型的差异化限流
-
-2. **缓存策略优化**
-   - 从简单的 `cacheable` 标记升级为 `key_pattern` 模式
-   - 支持动态缓存键生成
-   - 细粒度的缓存控制
-
-3. **批量操作支持**
-   - 统一的 `/batch` 端点设计
-   - 优化的批量操作限流策略
-   - 事务性批量处理
-
-## 性能优化配置
-
-### 1. 限流配置
+#### 批量操作结果 (BatchOperationResult)
 
 ```protobuf
-option (rate_limit) = {
-  requests_per_second: 100
-  burst: 200
-};
-```
-
-### 2. 缓存配置
-
-```protobuf
-option (cache) = {
-  ttl_seconds: 300
-  key_pattern: "user:{user_id}"
-  max_age_seconds: 60
-};
-```
-
-### 3. 熔断器配置
-
-```protobuf
-option (circuit_breaker) = {
-  failure_threshold: 5
-  timeout_seconds: 30
-  recovery_timeout_seconds: 60
-};
-```
-
-## 最佳实践
-
-### 1. 错误处理
-
-```go
-// 客户端错误处理示例
-resp, err := client.GetUser(ctx, &user.GetUserRequest{
-    UserId: "user123",
-})
-if err != nil {
-    return err
-}
-
-switch result := resp.Result.(type) {
-case *user.GetUserResponse_User:
-    // 处理成功响应
-    user := result.User
-    // ...
-case *user.GetUserResponse_Error:
-    // 处理业务错误
-    errorResp := result.Error
-    log.Errorf("业务错误: %s (代码: %s)", errorResp.Message, errorResp.Code)
-    return fmt.Errorf("获取用户失败: %s", errorResp.Message)
+message BatchOperationResult {
+  int32 total_count = 1;        // 总操作数
+  int32 success_count = 2;      // 成功数
+  int32 failed_count = 3;       // 失败数
+  int32 skipped_count = 4;      // 跳过数
+  repeated ErrorResponse errors = 5;     // 错误详情
+  google.protobuf.Any original_data = 6; // 原始数据
+  repeated string success_ids = 7;       // 成功处理的ID列表
 }
 ```
 
-### 2. 分页查询
+### 3. 错误码分段规范
 
-```go
-// 分页查询示例
-resp, err := client.ListUsers(ctx, &user.ListUsersRequest{
-    Paging: &user.PagingRequest{
-        Page: 1,
-        Size: 20,
-    },
-    SortOptions: []*user.SortOption{
-        {
-            Field: "created_at",
-            Direction: user.SortDirection_SORT_DIRECTION_DESC,
-        },
-    },
-    Fields: []string{"user_id", "username", "email", "status"}, // 字段筛选
-})
+错误码采用分段设计，便于分类管理：
+
+```protobuf
+enum ErrorCode {
+  // 通用错误码 (0-999)
+  ERROR_CODE_UNSPECIFIED = 0;
+  ERROR_CODE_INTERNAL_ERROR = 1;
+  ERROR_CODE_INVALID_ARGUMENT = 2;
+  ERROR_CODE_PERMISSION_DENIED = 3;
+  ERROR_CODE_NOT_FOUND = 4;
+  ERROR_CODE_ALREADY_EXISTS = 5;
+  ERROR_CODE_RESOURCE_EXHAUSTED = 6;
+  ERROR_CODE_FAILED_PRECONDITION = 7;
+  ERROR_CODE_ABORTED = 8;
+  ERROR_CODE_OUT_OF_RANGE = 9;
+  ERROR_CODE_UNIMPLEMENTED = 10;
+  ERROR_CODE_UNAVAILABLE = 11;
+  ERROR_CODE_DATA_LOSS = 12;
+  ERROR_CODE_UNAUTHENTICATED = 13;
+  
+  // 用户相关错误码 (1000-1999)
+  ERROR_CODE_USER_NOT_FOUND = 1000;
+  ERROR_CODE_USER_ALREADY_EXISTS = 1001;
+  ERROR_CODE_USER_INVALID_USERNAME = 1002;
+  ERROR_CODE_USER_INVALID_EMAIL = 1003;
+  ERROR_CODE_USER_INVALID_PHONE = 1004;
+  ERROR_CODE_USER_INVALID_PASSWORD = 1005;
+  
+  // 认证相关错误码 (2000-2999)
+  ERROR_CODE_AUTH_INVALID_CREDENTIALS = 2000;
+  ERROR_CODE_AUTH_TOKEN_EXPIRED = 2001;
+  ERROR_CODE_AUTH_TOKEN_INVALID = 2002;
+  ERROR_CODE_AUTH_CAPTCHA_REQUIRED = 2003;
+  ERROR_CODE_AUTH_CAPTCHA_INVALID = 2004;
+  ERROR_CODE_AUTH_MFA_REQUIRED = 2005;
+  ERROR_CODE_AUTH_MFA_INVALID = 2006;
+  
+  // 权限相关错误码 (3000-3999)
+  ERROR_CODE_PERMISSION_INSUFFICIENT = 3000;
+  ERROR_CODE_PERMISSION_ROLE_NOT_FOUND = 3001;
+  ERROR_CODE_PERMISSION_INVALID_SCOPE = 3002;
+  
+  // 组织相关错误码 (4000-4999)
+  ERROR_CODE_ORG_NOT_FOUND = 4000;
+  ERROR_CODE_ORG_INVALID_HIERARCHY = 4001;
+  ERROR_CODE_DEPT_NOT_FOUND = 4002;
+  
+  // 租户相关错误码 (5000-5999)
+  ERROR_CODE_TENANT_NOT_FOUND = 5000;
+  ERROR_CODE_TENANT_QUOTA_EXCEEDED = 5001;
+  ERROR_CODE_TENANT_SUSPENDED = 5002;
+  
+  // 会话相关错误码 (6000-6999)
+  ERROR_CODE_SESSION_EXPIRED = 6000;
+  ERROR_CODE_SESSION_INVALID = 6001;
+  ERROR_CODE_SESSION_CONCURRENT_LIMIT = 6002;
+  
+  // 身份提供商相关错误码 (7000-7999)
+  ERROR_CODE_IDP_NOT_FOUND = 7000;
+  ERROR_CODE_IDP_CONFIG_INVALID = 7001;
+  ERROR_CODE_IDP_CONNECTION_FAILED = 7002;
+  
+  // 限流与熔断相关错误码 (8000-8999)
+  ERROR_CODE_RATE_LIMIT_EXCEEDED = 8000;
+  ERROR_CODE_CIRCUIT_BREAKER_OPEN = 8001;
+  ERROR_CODE_QUOTA_EXCEEDED = 8002;
+}
 ```
 
-### 3. 批量操作
+### 4. 通用枚举定义
 
-```go
-// 批量创建用户示例
-resp, err := client.BatchCreateUsers(ctx, &user.BatchCreateUsersRequest{
-    Users: []*user.CreateUserRequest{
-        {Username: "user1", Email: "user1@example.com"},
-        {Username: "user2", Email: "user2@example.com"},
-    },
-})
+#### 用户账户状态
 
-if err != nil {
-    return err
+```protobuf
+enum UserAccountStatus {
+  USER_ACCOUNT_STATUS_UNSPECIFIED = 0; // 未指定
+  USER_ACCOUNT_STATUS_ACTIVE = 1;      // 激活
+  USER_ACCOUNT_STATUS_INACTIVE = 2;    // 未激活
+  USER_ACCOUNT_STATUS_LOCKED = 3;      // 锁定
+  USER_ACCOUNT_STATUS_SUSPENDED = 4;   // 暂停
+  USER_ACCOUNT_STATUS_DELETED = 5;     // 已删除
+  USER_ACCOUNT_STATUS_PENDING = 6;     // 待审核
+}
+```
+
+#### 认证类型
+
+```protobuf
+enum AuthenticationType {
+  AUTHENTICATION_TYPE_UNSPECIFIED = 0; // 未指定
+  AUTHENTICATION_TYPE_PASSWORD = 1;    // 用户名密码认证
+  AUTHENTICATION_TYPE_SMS = 2;         // 手机短信验证码
+  AUTHENTICATION_TYPE_EMAIL = 3;       // 邮箱验证码
+  AUTHENTICATION_TYPE_LDAP = 4;        // LDAP认证
+  AUTHENTICATION_TYPE_OAUTH2 = 5;      // OAuth2认证
+  AUTHENTICATION_TYPE_SAML = 6;        // SAML认证
+  AUTHENTICATION_TYPE_MFA = 7;         // 多因素认证
+  AUTHENTICATION_TYPE_BIOMETRIC = 8;   // 生物识别认证
+  AUTHENTICATION_TYPE_API_KEY = 9;     // API密钥认证
+}
+```
+
+### 5. 自定义选项扩展
+
+#### 限流选项 (RateLimitOptions)
+
+```protobuf
+message RateLimitOptions {
+  int32 requests_per_minute = 1;  // 每分钟请求数限制
+  int32 requests_per_hour = 2;    // 每小时请求数限制
+  int32 requests_per_day = 3;     // 每天请求数限制
+  int32 burst_size = 4;           // 突发请求大小
+  string key_pattern = 5;         // 限流键模式
 }
 
-switch result := resp.Result.(type) {
-case *user.BatchCreateUsersResponse_Results:
-    results := result.Results
-    for i, result := range results.Results {
-        if result.Success {
-            log.Infof("用户 %d 创建成功", i)
-        } else {
-            log.Errorf("用户 %d 创建失败: %s", i, result.Error)
-        }
+extend google.protobuf.MethodOptions {
+  RateLimitOptions rate_limit = 50001; // 字段号：50001
+}
+```
+
+#### 缓存选项 (CacheOptions)
+
+```protobuf
+message CacheOptions {
+  int32 ttl_seconds = 1;          // 缓存生存时间（秒）
+  string cache_key_pattern = 2;   // 缓存键模式
+  bool enable_cache = 3;          // 是否启用缓存
+  repeated string invalidate_tags = 4; // 缓存失效标签
+}
+
+extend google.protobuf.MethodOptions {
+  CacheOptions cache = 50002; // 字段号：50002
+}
+```
+
+#### 熔断选项 (CircuitBreakerOptions)
+
+```protobuf
+message CircuitBreakerOptions {
+  int32 failure_threshold = 1;    // 失败阈值
+  int32 timeout_seconds = 2;      // 超时时间（秒）
+  int32 recovery_timeout = 3;     // 恢复超时时间（秒）
+  bool enable_circuit_breaker = 4; // 是否启用熔断
+}
+
+extend google.protobuf.MethodOptions {
+  CircuitBreakerOptions circuit_breaker = 50003; // 字段号：50003
+}
+```
+
+## 使用示例
+
+### 1. 用户列表查询
+
+```json
+{
+  "paging": {
+    "page": 1,
+    "pageSize": 20
+  },
+  "sortOptions": [
+    {
+      "field": "created_at",
+      "direction": "SORT_DIRECTION_DESC"
     }
-case *user.BatchCreateUsersResponse_Error:
-    return fmt.Errorf("批量创建失败: %s", result.Error.Message)
+  ],
+  "filter": {
+    "status": ["USER_ACCOUNT_STATUS_ACTIVE"],
+    "createdAtStart": "2024-01-01T00:00:00Z",
+    "createdAtEnd": "2024-12-31T23:59:59Z"
+  }
 }
 ```
 
-### 4. HTTP API 调用示例
+### 2. 批量用户创建
 
-```bash
-# 获取用户列表
-curl -X GET "http://localhost:8080/v1/users?page=1&size=10" \
-  -H "Authorization: Bearer <token>"
-
-# 创建用户
-curl -X POST "http://localhost:8080/v1/users" \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer <token>" \
-  -d '{
-    "username": "newuser",
-    "email": "newuser@example.com",
-    "password": "securepassword"
-  }'
-
-# 批量创建用户
-curl -X POST "http://localhost:8080/v1/users/batch" \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer <token>" \
-  -d '{
-    "users": [
-      {"username": "user1", "email": "user1@example.com"},
-      {"username": "user2", "email": "user2@example.com"}
-    ]
-  }'
-
-# 检查用户权限
-curl -X POST "http://localhost:8080/v1/users/123/permissions/check" \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer <token>" \
-  -d '{
-    "resource": "user:read",
-    "action": "view"
-  }'
+```json
+{
+  "users": [
+    {
+      "username": "user1",
+      "email": "user1@example.com",
+      "displayName": "用户一"
+    },
+    {
+      "username": "user2",
+      "email": "user2@example.com",
+      "displayName": "用户二"
+    }
+  ],
+  "skipDuplicates": true
+}
 ```
 
-## 版本说明
+### 3. 用户登录
 
-### 版本策略
+```json
+{
+  "username": "admin@example.com",
+  "password": "password123",
+  "authType": "AUTHENTICATION_TYPE_PASSWORD",
+  "deviceInfo": {
+    "deviceType": "DEVICE_TYPE_BROWSER",
+    "deviceName": "Chrome 120.0",
+    "ipAddress": "192.168.1.100",
+    "userAgent": "Mozilla/5.0..."
+  },
+  "rememberMe": true
+}
+```
 
-- v1 是 API 的初始稳定版本
-- 采用语义化版本控制 (Semantic Versioning)
-- 保证向后兼容性
+## 兼容性说明
 
-### 未来版本计划
+### 向前兼容性
 
-1. **小版本更新**: 添加新功能，保持向后兼容
-2. **补丁版本**: 错误修复和性能优化
-3. **重大版本**: 仅在必要时进行不兼容更新
+- 所有新增字段使用`optional`或`repeated`修饰符
+- 枚举值只能追加，不能删除或修改现有值
+- 消息字段号不能重复使用
+- 服务方法只能新增，不能删除或修改签名
+
+### 国际化支持
+
+- 错误消息支持多语言，通过`i18n_messages`字段提供
+- 枚举值描述支持国际化
+- 字段描述支持多语言注释
+
+### 扩展性设计
+
+- 预留扩展字段`extra_attributes`用于存储JSON格式的自定义属性
+- 支持标签系统用于灵活分类和搜索
+- 审计信息统一管理，支持完整的操作追踪
 
 ## 开发指南
 
-### 1. 代码生成
+### 代码生成
 
 ```bash
-# 生成 Go 代码
-protoc --go_out=. --go-grpc_out=. \
-  --go_opt=paths=source_relative \
-  --go-grpc_opt=paths=source_relative \
-  api/user/service/v1/*.proto
+# Go代码生成
+protoc --go_out=. --go-grpc_out=. *.proto
 
-# 生成 HTTP 网关代码（支持 RESTful API）
-protoc --grpc-gateway_out=. \
-  --grpc-gateway_opt=paths=source_relative \
-  --grpc-gateway_opt=generate_unbound_methods=true \
-  api/user/service/v1/*.proto
+# Java代码生成
+protoc --java_out=. *.proto
 
-# 生成 OpenAPI 文档
-protoc --openapiv2_out=. \
-  --openapiv2_opt=allow_merge=true \
-  api/user/service/v1/*.proto
+# TypeScript代码生成
+protoc --ts_out=. *.proto
 ```
 
-### 2. 服务实现
+### 测试建议
 
-```go
-type userServiceServer struct {
-    user.UnimplementedUserServiceServer
-    // 依赖注入
-}
+1. **单元测试**: 针对每个服务方法编写单元测试
+2. **集成测试**: 测试服务间的交互和数据一致性
+3. **性能测试**: 验证分页、批量操作的性能表现
+4. **兼容性测试**: 确保API版本间的兼容性
 
-func (s *userServiceServer) CreateUser(ctx context.Context, req *user.CreateUserRequest) (*user.CreateUserResponse, error) {
-    // 参数验证
-    if err := req.Validate(); err != nil {
-        return &user.CreateUserResponse{
-            Result: &user.CreateUserResponse_Error{
-                Error: &user.ErrorResponse{
-                    Code: user.ErrorCode_ERROR_CODE_INVALID_ARGUMENT,
-                    Message: "参数验证失败",
-                    Details: err.Error(),
-                },
-            },
-        }, nil
-    }
+### 监控指标
 
-    // 业务逻辑
-    user, err := s.createUser(ctx, req)
-    if err != nil {
-        return &user.CreateUserResponse{
-            Result: &user.CreateUserResponse_Error{
-                Error: &user.ErrorResponse{
-                    Code: user.ErrorCode_ERROR_CODE_INTERNAL_ERROR,
-                    Message: "创建用户失败",
-                    Details: err.Error(),
-                },
-            },
-        }, nil
-    }
-
-    return &user.CreateUserResponse{
-        Result: &user.CreateUserResponse_User{
-            User: user,
-        },
-    }, nil
-}
-```
-
-### 3. 中间件集成
-
-```go
-// 限流中间件
-func RateLimitInterceptor() grpc.UnaryServerInterceptor {
-    return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
-        // 从方法选项中获取限流配置
-        // 实现限流逻辑
-        return handler(ctx, req)
-    }
-}
-
-// 缓存中间件
-func CacheInterceptor() grpc.UnaryServerInterceptor {
-    return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
-        // 从方法选项中获取缓存配置
-        // 实现缓存逻辑
-        return handler(ctx, req)
-    }
-}
-```
-
-## 监控和观测
-
-### 1. 指标收集
-
-- API 调用次数和延迟
-- 错误率统计
-- 限流触发次数
+- API调用次数和响应时间
+- 错误率和错误类型分布
+- 限流和熔断触发情况
 - 缓存命中率
-- 熔断器状态
+- 用户活跃度和登录成功率
 
-### 2. 日志记录
+## 更新日志
 
-- 结构化日志
-- 请求追踪 ID
-- 审计日志
-- 性能日志
+### v1.0.0 (2024-01-01)
+- 初始版本发布
+- 完整的用户管理API
+- 支持多租户架构
+- 集成认证和权限管理
 
-### 3. 分布式追踪
+---
 
-- OpenTelemetry 集成
-- 跨服务调用追踪
-- 性能瓶颈分析
-
-## 安全考虑
-
-### 1. 认证和授权
-
-- JWT Token 验证
-- RBAC 权限控制
-- API 密钥管理
-- OAuth 2.0 集成
-
-### 2. 数据保护
-
-- 敏感数据加密
-- PII 数据脱敏
-- 审计日志
-- 数据备份和恢复
-
-### 3. 网络安全
-
-- TLS 加密传输
-- API 网关保护
-- DDoS 防护
-- 入侵检测
-
-## 故障排查
-
-### 1. 常见问题
-
-**问题**: 限流错误
-```
-ERROR_CODE_RATE_LIMIT_EXCEEDED: 请求频率超过限制
-```
-**解决**: 检查客户端请求频率，实现指数退避重试
-
-**问题**: 缓存失效
-```
-ERROR_CODE_CACHE_MISS: 缓存未命中
-```
-**解决**: 检查缓存配置和 TTL 设置
-
-**问题**: 熔断器开启
-```
-ERROR_CODE_CIRCUIT_BREAKER_OPEN: 熔断器已开启
-```
-**解决**: 检查下游服务状态，等待熔断器恢复
-
-### 2. 调试工具
-
-- gRPC 反射服务
-- Postman/Insomnia 测试
-- grpcurl 命令行工具
-- 分布式追踪系统
-
-## 贡献指南
-
-### 1. 开发流程
-
-1. Fork 项目
-2. 创建功能分支
-3. 编写代码和测试
-4. 提交 Pull Request
-5. 代码审查
-6. 合并到主分支
-
-### 2. 代码规范
-
-- 遵循 Protocol Buffers 风格指南
-- 使用有意义的命名
-- 添加详细的注释
-- 编写单元测试
-- 更新文档
-
-### 3. 测试要求
-
-- 单元测试覆盖率 > 80%
-- 集成测试
-- 性能测试
-- 安全测试
-
-## 云原生部署
-
-### 1. Kubernetes 部署配置
-
-```yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: user-service
-  namespace: om-platform
-spec:
-  replicas: 3
-  selector:
-    matchLabels:
-      app: user-service
-  template:
-    metadata:
-      labels:
-        app: user-service
-      annotations:
-        prometheus.io/scrape: "true"
-        prometheus.io/port: "9090"
-    spec:
-      containers:
-      - name: user-service
-        image: om-platform/user-service:v1.0.0
-        ports:
-        - containerPort: 8080
-          name: http
-        - containerPort: 9090
-          name: grpc
-        - containerPort: 9091
-          name: metrics
-        resources:
-          requests:
-            cpu: 500m
-            memory: 512Mi
-          limits:
-            cpu: 1000m
-            memory: 1Gi
-        readinessProbe:
-          httpGet:
-            path: /health/ready
-            port: 8080
-          initialDelaySeconds: 10
-          periodSeconds: 5
-        livenessProbe:
-          httpGet:
-            path: /health/live
-            port: 8080
-          initialDelaySeconds: 20
-          periodSeconds: 10
-        env:
-        - name: DB_HOST
-          valueFrom:
-            configMapKeyRef:
-              name: user-service-config
-              key: db_host
-        - name: DB_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: user-service-secrets
-              key: db_password
-        volumeMounts:
-        - name: config-volume
-          mountPath: /etc/user-service
-      volumes:
-      - name: config-volume
-        configMap:
-          name: user-service-config
-```
-
-### 2. 服务网格集成
-
-```yaml
-apiVersion: networking.istio.io/v1alpha3
-kind: VirtualService
-metadata:
-  name: user-service
-  namespace: om-platform
-spec:
-  hosts:
-  - "api.om-platform.com"
-  gateways:
-  - om-platform-gateway
-  http:
-  - match:
-    - uri:
-        prefix: /v1/users
-    - uri:
-        prefix: /v1/auth
-    route:
-    - destination:
-        host: user-service
-        port:
-          number: 8080
-    retries:
-      attempts: 3
-      perTryTimeout: 2s
-    fault:
-      delay:
-        percentage:
-          value: 0.1
-        fixedDelay: 5s
-    timeout: 10s
-```
-
-### 3. 自动伸缩配置
-
-```yaml
-apiVersion: autoscaling/v2
-kind: HorizontalPodAutoscaler
-metadata:
-  name: user-service-hpa
-  namespace: om-platform
-spec:
-  scaleTargetRef:
-    apiVersion: apps/v1
-    kind: Deployment
-    name: user-service
-  minReplicas: 3
-  maxReplicas: 10
-  metrics:
-  - type: Resource
-    resource:
-      name: cpu
-      target:
-        type: Utilization
-        averageUtilization: 70
-  - type: Resource
-    resource:
-      name: memory
-      target:
-        type: Utilization
-        averageUtilization: 80
-  - type: Pods
-    pods:
-      metric:
-        name: requests_per_second
-      target:
-        type: AverageValue
-        averageValue: 1000
-  behavior:
-    scaleDown:
-      stabilizationWindowSeconds: 300
-    scaleUp:
-      stabilizationWindowSeconds: 60
-```
-
-## 性能调优指南
-
-### 1. 数据库优化
-
-- 使用连接池管理数据库连接
-- 实现读写分离策略
-- 针对热点数据实现多级缓存
-- 定期执行EXPLAIN分析SQL查询性能
-
-```go
-// 数据库连接池配置示例
-func initDBPool(ctx context.Context) (*pgxpool.Pool, error) {
-    config, err := pgxpool.ParseConfig(os.Getenv("DATABASE_URL"))
-    if err != nil {
-        return nil, fmt.Errorf("解析数据库配置失败: %w", err)
-    }
-    
-    // 设置连接池参数
-    config.MaxConns = 20
-    config.MinConns = 5
-    config.MaxConnLifetime = 30 * time.Minute
-    config.MaxConnIdleTime = 5 * time.Minute
-    config.HealthCheckPeriod = 1 * time.Minute
-    
-    // 创建连接池
-    pool, err := pgxpool.ConnectConfig(ctx, config)
-    if err != nil {
-        return nil, fmt.Errorf("连接数据库失败: %w", err)
-    }
-    
-    return pool, nil
-}
-```
-
-### 2. 缓存策略
-
-- 实现多级缓存架构（本地缓存 + Redis）
-- 使用布隆过滤器减少缓存穿透
-- 实现缓存预热机制
-- 采用缓存异步更新策略
-
-```go
-// 多级缓存实现示例
-type MultiLevelCache struct {
-    localCache *ristretto.Cache
-    redisCache *redis.Client
-    mutex      sync.RWMutex
-}
-
-func (c *MultiLevelCache) Get(ctx context.Context, key string) (interface{}, error) {
-    // 1. 查询本地缓存
-    if val, found := c.localCache.Get(key); found {
-        metrics.CacheHits.WithLabelValues("local").Inc()
-        return val, nil
-    }
-    
-    // 2. 查询Redis缓存
-    val, err := c.redisCache.Get(ctx, key).Result()
-    if err == nil {
-        // 回填本地缓存
-        var decoded interface{}
-        if err := json.Unmarshal([]byte(val), &decoded); err == nil {
-            c.localCache.Set(key, decoded, 1)
-        }
-        metrics.CacheHits.WithLabelValues("redis").Inc()
-        return decoded, nil
-    } else if err != redis.Nil {
-        return nil, err
-    }
-    
-    metrics.CacheMisses.Inc()
-    return nil, fmt.Errorf("缓存未命中")
-}
-```
-
-### 3. 并发控制
-
-- 使用工作池限制并发请求数
-- 实现自适应限流算法
-- 针对热点数据实现分片锁
-- 使用上下文控制请求超时
-
-```go
-// 工作池实现示例
-type WorkerPool struct {
-    tasks       chan func()
-    concurrency int
-    wg          sync.WaitGroup
-}
-
-func NewWorkerPool(concurrency int) *WorkerPool {
-    pool := &WorkerPool{
-        tasks:       make(chan func(), concurrency*10),
-        concurrency: concurrency,
-    }
-    
-    pool.wg.Add(concurrency)
-    for i := 0; i < concurrency; i++ {
-        go func() {
-            defer pool.wg.Done()
-            for task := range pool.tasks {
-                task()
-            }
-        }()
-    }
-    
-    return pool
-}
-
-func (p *WorkerPool) Submit(task func()) error {
-    select {
-    case p.tasks <- task:
-        return nil
-    default:
-        return fmt.Errorf("工作池已满")
-    }
-}
-```
-
-## 高可用部署架构
-
-### 1. 多区域部署
-
-- 实现跨区域数据同步
-- 配置全局负载均衡
-- 实现就近接入策略
-- 区域故障自动切换
-
-### 2. 灾备策略
-
-- 定期数据备份与恢复演练
-- 实现数据库主从复制
-- 配置跨区域数据备份
-- 制定完整的灾难恢复计划
-
-### 3. 混沌工程实践
-
-- 定期执行故障注入测试
-- 模拟网络延迟和分区
-- 测试服务过载场景
-- 验证自动恢复机制
-
-```go
-// 混沌测试中间件示例
-func ChaosTesting() grpc.UnaryServerInterceptor {
-    return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
-        // 根据配置决定是否注入故障
-        if shouldInjectFailure() {
-            failureType := selectFailureType()
-            switch failureType {
-            case "latency":
-                // 注入延迟
-                latency := randomLatency(100, 500) // 100-500ms
-                time.Sleep(latency)
-            case "error":
-                // 注入错误
-                return nil, status.Error(selectRandomErrorCode(), "混沌测试注入的错误")
-            case "panic":
-                // 注入panic (会被恢复)
-                if rand.Float64() < 0.01 { // 1%的概率
-                    panic("混沌测试注入的panic")
-                }
-            }
-        }
-        
-        return handler(ctx, req)
-    }
-}
-```
-
-## API 版本管理
-
-### 1. 版本兼容性策略
-
-- 向后兼容性保证
-- 字段弃用流程
-- API 版本生命周期
-- 兼容性测试套件
-
-### 2. 版本迁移指南
-
-- 平滑升级路径
-- 客户端适配策略
-- 版本共存期
-- 迁移工具和脚本
-
-### 3. API 变更管理
-
-- 变更影响评估
-- 变更通知机制
-- 变更文档维护
-- 自动化兼容性检查
-
-## 联系我们
-
-- 项目仓库: https://github.com/om-platform/api
-- 问题反馈: https://github.com/om-platform/api/issues
-- 邮件联系: api-team@om-platform.com
-- 技术文档: https://docs.om-platform.com/api/user
+**注意**: 本文档随API版本更新，请关注版本变更说明。如有疑问，请联系开发团队。

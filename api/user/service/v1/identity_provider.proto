@@ -1,15 +1,22 @@
 syntax = "proto3";
 
+// 用户服务身份提供商模块 - 提供身份提供商管理功能
 package user.service.v1;
+
+// 包配置选项
+option go_package = "github.com/Sakuya1998/om-platform/api/user/service/v1;userv1";
+option java_multiple_files = true;
+option java_package = "com.omplatform.api.user.service.v1";
+option java_outer_classname = "IdentityProviderProto";
+option csharp_namespace = "OmPlatform.Api.User.Service.V1";
+option php_namespace = "OmPlatform\\Api\\User\\Service\\V1";
+option ruby_package = "OmPlatform::Api::User::Service::V1";
 
 import "google/api/annotations.proto";
 import "google/protobuf/timestamp.proto";
-import "google/protobuf/descriptor.proto";
-import "validate/validate.proto";
-import "api/user/service/v1/common.proto";
-import "api/user/service/v1/error_codes.proto";
-
-option go_package = "om-platform/api/user/service/v1;userv1";
+import "gnostic/openapi/v3/annotations.proto";
+import "common.proto";
+import "error_codes.proto";
 
 // 身份提供商服务
 service IdentityProviderService {
@@ -228,7 +235,7 @@ message LDAPConfig {
   string base_dn = 4 [(validate.rules).string.min_len = 1];
   string user_filter = 5;
   string group_filter = 6;
-  string user_id_attribute = 7;
+  uint32 user_id_attribute = 7;
   string user_name_attribute = 8;
   string user_email_attribute = 9;
   string user_display_name_attribute = 10;
@@ -564,7 +571,7 @@ message GetIdentityProviderAuditLogsRequest {
   google.protobuf.Timestamp start_time = 3;
   google.protobuf.Timestamp end_time = 4;
   string action = 5;
-  string user_id = 6;
+  uint32 user_id = 6;
 }
 
 // 获取身份提供商审计日志响应
@@ -583,7 +590,7 @@ message IdentityProviderAuditLogsData {
 message IdentityProviderAuditLog {
   string log_id = 1;
   string provider_id = 2;
-  string user_id = 3;
+  uint32 user_id = 3;
   string action = 4;
   string details = 5;
   string ip_address = 6;

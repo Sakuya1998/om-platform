@@ -1,20 +1,22 @@
 syntax = "proto3";
 
+// 用户服务组织模块 - 提供组织管理功能
 package user.service.v1;
 
-import "google/api/annotations.proto";
-import "google/protobuf/empty.proto";
-import "google/protobuf/timestamp.proto";
-import "google/protobuf/field_mask.proto";
-import "google/protobuf/struct.proto";
-import "google/protobuf/descriptor.proto";
-import "validate/validate.proto";
-import "api/user/service/v1/common.proto";
-import "api/user/service/v1/error_codes.proto";
-
-option go_package = "om-platform/api/user/service/v1;userv1";
+// 包配置选项
+option go_package = "github.com/Sakuya1998/om-platform/api/user/service/v1;userv1";
 option java_multiple_files = true;
-option java_package = "api.user.service.v1";
+option java_package = "com.omplatform.api.user.service.v1";
+option java_outer_classname = "OrganizationProto";
+option csharp_namespace = "OmPlatform.Api.User.Service.V1";
+option php_namespace = "OmPlatform\\Api\\User\\Service\\V1";
+option ruby_package = "OmPlatform::Api::User::Service::V1";
+
+import "google/api/annotations.proto";
+import "google/protobuf/timestamp.proto";
+import "gnostic/openapi/v3/annotations.proto";
+import "common.proto";
+import "error_codes.proto";
 
 // 组织服务 (OrganizationService)
 // 提供组织结构管理、组织成员管理和组织配置管理等功能
@@ -333,7 +335,7 @@ message Organization {
   ];
   
   // 组织类型
-  string type = 4 [
+  OrganizationType type = 4 [
     json_name = "type",
     (gnostic.openapi.v3.property) = {description: "组织类型"}
   ];
@@ -351,9 +353,9 @@ message Organization {
   ];
   
   // 组织状态：ACTIVE, INACTIVE
-  string status = 7 [
+  CommonStatus status = 7 [
     json_name = "status",
-    (gnostic.openapi.v3.property) = {description: "组织状态：ACTIVE, INACTIVE"}
+    (gnostic.openapi.v3.property) = {description: "组织状态"}
   ];
   
   // 组织排序
