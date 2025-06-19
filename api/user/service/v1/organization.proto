@@ -1,7 +1,7 @@
 syntax = "proto3";
 
 // 用户服务组织模块 - 提供组织管理功能
-package user.service.v1;
+package api.user.service.v1;
 
 // 包配置选项
 option go_package = "github.com/Sakuya1998/om-platform/api/user/service/v1;userv1";
